@@ -1,0 +1,22 @@
+# dependencias
+node_modules
+
+# Next.js
+.next
+out
+*.tsbuildinfo
+
+# variables de entorno (solo se versiona .env.example)
+.env*
+!.env.example
+
+# registros y resultados de pruebas
+firebase-debug.log
+*.log
+test-results
+playwright-report
+coverage
+
+# sistema operativo / editor
+.DS_Store
+Thumbs.db
