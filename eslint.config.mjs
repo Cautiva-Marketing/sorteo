@@ -2,7 +2,9 @@ import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 import tseslint from "typescript-eslint";
 
-const firebaseImportPatterns = ["firebase", "firebase/*", "firebase-admin", "firebase-admin/*"];
+// Coincide con "firebase", "firebase/auth", "firebase-admin", "firebase-admin/firestore", etc.
+// (no con rutas internas como "@/services/firebase/admin").
+const firebaseImportRegex = "^firebase(-admin)?(/|$)";
 
 const eslintConfig = tseslint.config(
   {
@@ -30,7 +32,7 @@ const eslintConfig = tseslint.config(
         {
           patterns: [
             {
-              group: firebaseImportPatterns,
+              regex: firebaseImportRegex,
               message: "Importa Firebase solo desde src/services/** o scripts/** (constitución I).",
             },
           ],

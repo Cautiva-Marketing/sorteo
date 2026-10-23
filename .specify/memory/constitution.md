@@ -1,20 +1,34 @@
 <!--
 SYNC IMPACT REPORT (temporal; eliminar antes de hacer commit)
-- Version change: 1.0.0 → 1.0.1 (PATCH: aclaración del principio III, sin cambiar su intención)
-- Principios modificados: III. Seguridad y Prevención de Abuso (se aclara que reglas
-  `deny all` con acceso solo por servidor cumplen el requisito)
-- Principios añadidos en 1.0.0 (adopción inicial):
-  I. Stack y Arquitectura en Capas
-  II. Calidad de Código y Validación
-  III. Seguridad y Prevención de Abuso (NO NEGOCIABLE)
-  IV. Privacidad de Datos Personales (Ley 29733)
-  V. UX Mobile-First, Marca y Accesibilidad
-  VI. Pruebas, Rendimiento y Simplicidad
-- Secciones añadidas: Restricciones Técnicas y de Despliegue; Flujo de Desarrollo y
-  Puertas de Calidad; Governance
+- Version change: 1.0.1 → 2.0.0 (MAJOR: se eliminan reglas de los principios III y IV de forma
+  incompatible con la versión anterior; la feature 002 exige quitar el consentimiento y el
+  anti-spam obligatorios)
+- Principios modificados:
+  - III. Seguridad y Prevención de Abuso (NO NEGOCIABLE) → III. Seguridad y Control de Acceso
+    (NO NEGOCIABLE). Se elimina la obligación de protección anti-spam (rate limiting, App Check o
+    reCAPTCHA); se registra como riesgo aceptado.
+  - IV. Privacidad de Datos Personales (Ley 29733) → IV. Minimización y Uso de Datos Personales.
+    Se eliminan el consentimiento explícito, la finalidad mostrada en el formulario, el enlace a la
+    política y la evidencia de consentimiento. Se mantienen la minimización y la restricción de
+    uso/exposición; se actualiza la lista de campos permitidos (nombres, celular, empresa u
+    ocupación, que ya existían en la feature 001).
+  - V. UX Mobile-First, Marca y Accesibilidad: la paleta pasa de azul `#3d8cd3` + blanco a base
+    blanco y negro con el azul del logo de Cautiva como único acento; se agrega la tipografía
+    (Space Grotesk / Inter); la regla «logo solo sobre fondo oscuro» se reemplaza por logo en
+    versión para fondo claro sobre fondo blanco.
+  - VI. Pruebas, Rendimiento y Simplicidad: la prueba E2E ya no cubre «envío sin consentimiento»;
+    cubre «envío con datos inválidos».
+- Principios sin cambios: I, II.
+- Secciones añadidas: ninguna
 - Secciones eliminadas: ninguna
+- Secciones modificadas: Restricciones Técnicas y de Despliegue (sin cambios de fondo);
+  Flujo de Desarrollo y Puertas de Calidad (sin cambios de fondo); Governance (sin cambios)
 - Plantillas dependientes: no se modifican (leen la constitución en tiempo de ejecución)
-- TODOs pendientes: ninguno (la ruta del logo se resolvió a `logo.svg` en la raíz del repo)
+- Impacto en artefactos existentes (fuera del alcance de este comando, a resolver con la feature 002):
+  `specs/001-registro-sorteo/` (spec, plan, tasks, contratos) y el código actual
+  (consentimiento, `/privacidad`, App Check/reCAPTCHA, paleta) incumplen esta versión hasta que se
+  implemente la 002.
+- TODOs pendientes: ninguno
 -->
 # Registro y Sorteo Constitution
 
@@ -47,7 +61,7 @@ backend con bajo costo y auditar en un solo lugar todo acceso a datos personales
 **Rationale**: la validación en cliente mejora la experiencia, pero solo la del servidor
 protege los datos; compartir esquemas evita divergencias entre ambas.
 
-### III. Seguridad y Prevención de Abuso (NO NEGOCIABLE)
+### III. Seguridad y Control de Acceso (NO NEGOCIABLE)
 
 - Las credenciales y claves de Firebase DEBEN residir en variables de entorno. Ningún secreto
   DEBE versionarse: los archivos `.env*` DEBEN estar en `.gitignore` y el repo DEBE incluir
@@ -64,47 +78,62 @@ protege los datos; compartir esquemas evita divergencias entre ambas.
 - No DEBE existir más de un registro por celular. El celular DEBE normalizarse a formato
   E.164 (`+51XXXXXXXXX`) y la unicidad DEBE garantizarse en el servidor o en las reglas de
   datos (p. ej. usando el celular normalizado como ID del documento), no solo en la UI.
-- El registro DEBE estar protegido contra spam mediante al menos uno de: rate limiting,
-  Firebase App Check o reCAPTCHA.
+- El registro NO exige protección anti-automatización (reCAPTCHA, App Check ni equivalentes):
+  la organización acepta el riesgo de registros automatizados o falsos. Esta decisión NO
+  autoriza debilitar el resto del principio: la validación del servidor, la unicidad por
+  celular y las reglas deny-by-default siguen siendo obligatorias.
 - Las reglas de Firestore DEBEN estar cubiertas por pruebas contra el emulador.
 
-**Rationale**: el formulario es público y se difunde por QR; sin reglas estrictas y sin
-anti-abuso, el sorteo pierde legitimidad y los datos personales quedan expuestos.
+**Rationale**: el panel y los datos personales deben seguir protegidos aunque el formulario sea
+público; sin anti-spam, la validación estricta y la unicidad por celular son la defensa mínima
+que mantiene la integridad del sorteo, y el riesgo restante queda aceptado de forma explícita.
 
-### IV. Privacidad de Datos Personales (Ley 29733)
+### IV. Minimización y Uso de Datos Personales
 
-- El tratamiento de nombre y celular DEBE cumplir la Ley N.º 29733 (Perú) y su reglamento.
-- El formulario DEBE mostrar, antes del envío, la finalidad del tratamiento (participación en
-  el sorteo y contacto al ganador) y un casillero de consentimiento explícito, obligatorio y
-  NO premarcado, con enlace al texto completo de la política.
-- El registro DEBE guardar evidencia del consentimiento (fecha/hora y versión del texto
-  aceptado).
-- DEBE recolectarse solo lo estrictamente necesario (nombre y celular); cualquier campo
-  adicional exige enmendar esta constitución o justificarlo en el plan.
-- Los datos NO DEBEN usarse para una finalidad distinta a la declarada sin nuevo
-  consentimiento, ni exponerse en el cliente público ni en logs.
+- DEBE recolectarse solo lo estrictamente necesario: nombres completos, celular y empresa u
+  ocupación. Cualquier campo adicional exige enmendar esta constitución o justificarlo en el
+  plan.
+- El sistema NO incluye flujo de consentimiento ni política de privacidad (casillero, texto de
+  finalidad, enlace o evidencia de aceptación). El cumplimiento de la Ley N.º 29733 (Perú) y su
+  reglamento corresponde a la empresa organizadora, fuera del sistema.
+- Los datos NO DEBEN usarse para una finalidad distinta a la participación en el sorteo y el
+  contacto con los ganadores, ni exponerse en el cliente público ni en logs. Los datos
+  mostrados públicamente (p. ej. el contador de registrados) DEBEN limitarse a agregados que no
+  identifiquen a ninguna persona.
+- El administrador DEBE poder borrar los datos personales de los participantes al terminar la
+  campaña, conservando del sorteo solo lo mínimo para dejar constancia del resultado.
 
-**Rationale**: el consentimiento informado y la minimización son obligaciones legales y
-reducen el riesgo para los participantes y para la empresa.
+**Rationale**: aunque el consentimiento se gestiona fuera del sistema, recolectar lo mínimo,
+no exponerlo y poder borrarlo reduce el riesgo para los participantes y para la empresa.
 
 ### V. UX Mobile-First, Marca y Accesibilidad
 
 - La interfaz DEBE diseñarse primero para móvil (desde 360 px de ancho) y escalar a pantallas
-  mayores; el flujo principal de entrada es el escaneo de un QR.
-- La identidad visual DEBE derivarse de `logo.svg` (raíz del repo): azul de marca `#3d8cd3` y
-  blanco `#ffffff`. Los colores DEBEN definirse como design tokens (variables CSS / tema de
-  Tailwind); NO DEBEN hardcodearse valores de color en componentes.
-- El logo es blanco con acentos azules: DEBE colocarse solo sobre fondos oscuros distintos del
-  azul de marca, de modo que ningún elemento del logo se pierda.
+  mayores, incluidas pantallas de proyección; el flujo principal de entrada es el escaneo de un
+  QR.
+- El diseño DEBE ser minimalista: base blanco y negro (fondo blanco, texto casi negro `#0A0A0A`,
+  grises neutros y bordes finos). La identidad de Cautiva Marketing se expresa con su logo y con
+  su azul como único color de acento, usado solo en detalles mínimos. Los colores de estado
+  (error y éxito) son la única excepción.
+- Los colores DEBEN definirse como design tokens (variables CSS / tema de Tailwind); NO DEBEN
+  hardcodearse valores de color en componentes.
+- El logo DEBE usarse en la versión que corresponda al fondo: sobre fondo claro, ícono «ti» más
+  texto «cautiva marketing» en negro; la versión de texto blanco solo sobre fondos oscuros. Ningún
+  elemento del logo DEBE perderse por falta de contraste. Los archivos del logo DEBEN versionarse
+  en el repo.
+- La tipografía DEBE ser la de cautivamarketing.com: Space Grotesk para títulos e Inter para el
+  resto del texto, con texto de respaldo legible mientras cargan.
 - El contraste DEBE cumplir WCAG 2.1 AA (4.5:1 texto normal, 3:1 texto grande y componentes
-  de UI). Nota: `#3d8cd3` frente a blanco ronda 3.6:1, por lo que NO DEBE usarse para texto
-  normal en ninguna combinación con blanco; DEBE definirse un token más oscuro para ese caso.
+  de UI). El azul del logo `#0A70BB` (≈5.2:1 sobre blanco) PUEDE usarse como texto; `#3D8CD3`
+  (≈3.6:1 sobre blanco) NO DEBE usarse para texto normal, solo para elementos no textuales.
 - Cada campo DEBE tener un `label` asociado; los errores DEBEN estar en español, ser claros y
-  anunciarse a lectores de pantalla (`aria-describedby` / `aria-live`).
+  anunciarse a lectores de pantalla (`aria-describedby` / `aria-live`). Las ventanas modales
+  DEBEN contener el foco, poder cerrarse con el teclado y respetar `prefers-reduced-motion`.
 - Toda la interfaz y los mensajes DEBEN estar en español (es-PE).
 
 **Rationale**: la mayoría de participantes entra desde un celular, a menudo con luz exterior
-y redes lentas; la marca consistente y la accesibilidad elevan la conversión y la confianza.
+y redes lentas; un diseño limpio con la marca de la empresa y buena accesibilidad eleva la
+conversión y la confianza.
 
 ### VI. Pruebas, Rendimiento y Simplicidad
 
@@ -112,14 +141,14 @@ y redes lentas; la marca consistente y la accesibilidad elevan la conversión y 
   lógica del sorteo (selección con aleatoriedad criptográficamente segura, sin repetir
   ganadores, solo entre registros válidos).
 - DEBE existir al menos una prueba E2E del flujo de registro que cubra éxito, celular
-  duplicado y envío sin consentimiento.
+  duplicado y envío con datos inválidos.
 - La página de registro DEBE obtener Lighthouse móvil ≥ 90 en Performance y Accessibility,
   con carga inicial ligera (JavaScript de cliente mínimo; preferir Server Components).
 - DEBE construirse solo lo especificado (YAGNI). Toda dependencia nueva DEBE justificarse en el
   plan indicando el problema que resuelve y por qué no basta lo existente.
 
 **Rationale**: el sorteo debe ser verificable y justo, el formulario rápido en redes móviles
-lentas, y la base de código pequeña para mantenerla seguros y simple.
+lentas, y la base de código pequeña para mantenerla segura y simple.
 
 ## Restricciones Técnicas y de Despliegue
 
@@ -153,4 +182,4 @@ lentas, y la base de código pequeña para mantenerla seguros y simple.
 - El cumplimiento DEBE revisarse en cada plan (Constitution Check) y en cada revisión de
   código; los incumplimientos sin justificación bloquean la integración.
 
-**Version**: 1.0.1 | **Ratified**: 2026-10-21 | **Last Amended**: 2026-10-21
+**Version**: 2.0.0 | **Ratified**: 2026-10-21 | **Last Amended**: 2026-10-22

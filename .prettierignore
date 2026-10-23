@@ -11,5 +11,6 @@ next-env.d.ts
 .claude
 specs
 logo.svg
-public/logo.svg
+public/logo-claro.svg
+public/icono-ti.webp
 *.log

@@ -54,7 +54,7 @@ Idempotencia: reenviar los mismos datos devuelve 409 `ALREADY_REGISTERED`; nunca
 
 ## Administrador
 
-Todos requieren cookie de sesión válida y claim `admin`. Sin sesión: 401 `UNAUTHORIZED`; con sesión sin claim:
+Todos, excepto `POST` y `DELETE /api/admin/session`, requieren cookie de sesión válida y claim `admin`. Sin sesión: 401 `UNAUTHORIZED`; con sesión sin claim:
 403 `FORBIDDEN`. Los métodos que modifican datos además exigen `Origin` igual al host de la aplicación.
 
 ### `POST /api/admin/session` — Iniciar sesión (FR-015)
@@ -66,7 +66,8 @@ Errores: 401 `UNAUTHORIZED` (token inválido/antiguo), 403 `FORBIDDEN` (sin clai
 
 ### `DELETE /api/admin/session` — Cerrar sesión
 
-Responde `204` y expira la cookie.
+Responde `204` y expira la cookie. Es idempotente y no exige sesión válida (cerrar sesión debe funcionar
+aunque la sesión haya vencido); solo comprueba `Origin`. No expone datos.
 
 ### `PUT /api/admin/registration` — Abrir/cerrar inscripciones (FR-029)
 

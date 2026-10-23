@@ -5,6 +5,7 @@ node_modules
 .next
 out
 *.tsbuildinfo
+next-env.d.ts
 
 # variables de entorno (solo se versiona .env.example)
 .env*

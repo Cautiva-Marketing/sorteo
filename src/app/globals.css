@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens: blanco y negro con el azul del logo de Cautiva como único acento
+ * (specs/002-rediseno-minimalista/research.md D-104).
+ * Este es el ÚNICO archivo donde pueden aparecer valores de color literales (constitución V):
+ * los componentes usan solo clases de estos tokens (bg-paper, text-ink-900, ...).
+ */
+/*
+ * `static`: Tailwind emite todos los tokens aunque ninguna clase los use; la ruleta (canvas) los lee
+ * por nombre con getComputedStyle (specs/003-sorteo-premios-ruleta/research.md D-210).
+ */
+@theme static {
+  --color-paper: #ffffff;
+  --color-paper-soft: #f5f5f5;
+  --color-ink-900: #0a0a0a;
+  --color-ink-600: #525252;
+  --color-ink-500: #737373;
+  --color-ink-300: #8c8c8c;
+  --color-line: #e5e5e5;
+  --color-accent-600: #0a70bb;
+  --color-accent-500: #3d8cd3;
+  --color-danger-700: #b42318;
+  --color-success-700: #067647;
+}
+
+/* Las variables --font-inter y --font-space-grotesk las define next/font en app/layout.tsx. */
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Confeti de la ventana de bienvenida: cada pieza cae una sola vez (ver components/ui/Confetti.tsx). */
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 0), 105vh, 0) rotate(var(--spin, 360deg));
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  animation: confetti-fall var(--duration, 3s) ease-in var(--delay, 0s) 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -6,9 +6,9 @@ export default defineConfig({
     alias: [
       {
         find: "server-only",
-        replacement: path.resolve(__dirname, "tests/setup/server-only-stub.ts"),
+        replacement: path.resolve(import.meta.dirname, "tests/setup/server-only-stub.ts"),
       },
-      { find: "@", replacement: path.resolve(__dirname, "src") },
+      { find: "@", replacement: path.resolve(import.meta.dirname, "src") },
     ],
   },
   test: {
