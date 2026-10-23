@@ -3,6 +3,7 @@ import { BackToHomeLink } from "@/components/registration/BackToHomeLink";
 import { ClosedNotice } from "@/components/registration/ClosedNotice";
 import { RegistrationForm } from "@/components/registration/RegistrationForm";
 import { Logo } from "@/components/ui/Logo";
+import { PartnerLogos } from "@/components/ui/PartnerLogos";
 import { getRegistrationStatus } from "@/services/registration-status.service";
 
 export const metadata: Metadata = {
@@ -17,11 +18,11 @@ export default async function RegistroPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="flex justify-center px-4 py-8">
-        <Logo />
+      <header className="flex justify-center px-4 pt-8 pb-4">
+        <Logo size={52} />
       </header>
       <main className="mx-auto w-full max-w-md flex-1 px-4 pb-8">
-        <h1 className="mb-1 text-center font-display text-3xl font-bold tracking-tight text-ink-900">
+        <h1 className="mb-1 text-center font-display text-3xl font-extrabold tracking-tight text-ink-900">
           Regístrate en el sorteo
         </h1>
         {open ? (
@@ -29,7 +30,7 @@ export default async function RegistroPage() {
             <p className="mb-6 text-center text-base text-ink-600">
               Completa tus 3 datos para participar en el sorteo.
             </p>
-            <div className="rounded-2xl border border-line bg-paper p-6">
+            <div className="rounded-3xl border border-line bg-paper p-6">
               <RegistrationForm />
             </div>
           </>
@@ -40,11 +41,7 @@ export default async function RegistroPage() {
           </div>
         )}
       </main>
-      <footer className="border-t border-line px-4 py-6 text-center">
-        <p className="text-xs font-medium uppercase tracking-[0.3em] text-ink-600">
-          Cautiva Marketing
-        </p>
-      </footer>
+      <PartnerLogos />
     </div>
   );
 }

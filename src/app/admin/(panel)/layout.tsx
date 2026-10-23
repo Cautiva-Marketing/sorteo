@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Logo } from "@/components/ui/Logo";
 import { requireAdmin } from "@/services/admin-auth.service";
+import { countParticipants } from "@/services/participants.service";
+import { listPrizes } from "@/services/prizes.service";
+import { listWinnerRecords } from "@/services/spins.service";
 
 export const metadata: Metadata = {
   title: "Panel de administración",
@@ -14,20 +17,33 @@ export const dynamic = "force-dynamic";
 
 /**
  * Layout del panel: exige sesión de administrador en el servidor antes de renderizar cualquier
- * página hija. `/admin/login` queda fuera de este grupo para evitar un bucle de redirección.
+ * página hija y dibuja la barra lateral con los contadores de cada sección. `/admin/login` queda
+ * fuera de este grupo para evitar un bucle de redirección.
  */
 export default async function PanelLayout({ children }: Readonly<{ children: ReactNode }>) {
   await requireAdmin();
+  const [participants, prizes, records] = await Promise.all([
+    countParticipants(),
+    listPrizes(),
+    listWinnerRecords(),
+  ]);
+
+  const counts = {
+    participants,
+    prizesDone: prizes.filter((prize) => prize.exhausted).length,
+    prizesTotal: prizes.length,
+    winners: records.filter((record) => record.status === "active").length,
+  };
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-line bg-paper px-4 py-4">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
-          <Logo />
-          <AdminNav />
+    <div className="min-h-dvh bg-paper-soft lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <aside className="flex flex-col gap-4 border-b border-line bg-paper px-4 py-4 lg:sticky lg:top-0 lg:h-dvh lg:gap-6 lg:border-r lg:border-b-0 lg:px-4 lg:py-6">
+        <div className="flex justify-center lg:px-2 lg:py-2">
+          <Logo size={44} />
         </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
+        <AdminNav counts={counts} />
+      </aside>
+      <main className="min-w-0 px-4 py-6 lg:px-6">{children}</main>
     </div>
   );
 }

@@ -32,6 +32,14 @@ async function openPrizesPage(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "Premios", level: 1 })).toBeVisible();
 }
 
+async function openWinnersPage(page: Page): Promise<void> {
+  await page.goto("/admin/ganadores");
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByRole("heading", { name: "Historial de ganadores", level: 1 }),
+  ).toBeVisible();
+}
+
 function history(page: Page) {
   return page.getByRole("region", { name: "Historial de ganadores" });
 }
@@ -54,11 +62,11 @@ test("sin premios no se puede girar y se explica el motivo", async ({ page }) =>
     "/admin/premios",
   );
 
-  await openPrizesPage(page);
+  await openWinnersPage(page);
   await expect(page.getByText("Aún no hay ganadores.")).toBeVisible();
 });
 
-test("la pestaña Sorteo solo muestra la ruleta: sin formulario de premios ni historial", async ({
+test("la pestaña Sorteo muestra la ruleta con premios y ganadores, sin formulario de premios ni historial", async ({
   page,
 }) => {
   await seedParticipants(5);
@@ -67,7 +75,9 @@ test("la pestaña Sorteo solo muestra la ruleta: sin formulario de premios ni hi
   await openDrawPage(page);
 
   await expect(page.getByTestId("roulette-canvas")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Premios" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Premios del sorteo" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Alexa/ })).toBeChecked();
+  await expect(page.getByRole("region", { name: "Ganadores del evento" })).toBeVisible();
   await expect(page.getByLabel("Nombre del premio", { exact: true })).toHaveCount(0);
   await expect(history(page)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Premios", exact: true })).toBeVisible();
@@ -88,7 +98,7 @@ test("giro real: confirma el cierre de inscripciones, guarda al ganador y conser
   await expect(confirm).toBeVisible();
   await confirm.getByRole("button", { name: "Cancelar" }).click();
   await expect(confirm).toBeHidden();
-  await openPrizesPage(page);
+  await openWinnersPage(page);
   await expect(page.getByText("Aún no hay ganadores.")).toBeVisible();
   await openDrawPage(page);
 
@@ -109,15 +119,21 @@ test("giro real: confirma el cierre de inscripciones, guarda al ganador y conser
   await expect(page.getByRole("button", { name: "Girar", exact: true })).toBeDisabled();
   await expect(page.getByText("Este premio ya no tiene unidades pendientes.")).toBeVisible();
 
-  // El historial (en Premios) trae el celular y el estado; el premio queda sorteado.
+  // El premio queda sorteado y el panel del sorteo ya lista al ganador (sin celular).
+  await expect(page.getByRole("region", { name: "Ganadores del evento" })).toContainText(
+    "Jose Participante",
+  );
   await openPrizesPage(page);
+  await expect(prizeItem(page, "Alexa")).toContainText("1 de 1 entregadas");
+
+  // El historial (en Ganadores) trae el celular y el estado.
+  await openWinnersPage(page);
   const entry = history(page).getByRole("listitem");
   await expect(entry).toHaveCount(1);
-  await expect(entry).toContainText("#1 ·");
+  await expect(entry).toContainText("#1");
   await expect(entry).toContainText("Premio: Alexa");
   await expect(entry).toContainText(/Celular: 9\d{8}/);
   await expect(entry).toContainText("Ganador");
-  await expect(prizeItem(page, "Alexa")).toContainText("1 de 1 entregadas");
 
   // Recargar conserva el resultado y las inscripciones quedaron cerradas.
   await page.reload();
@@ -148,8 +164,9 @@ test("con las inscripciones cerradas el giro no pide confirmación y numera los 
   });
   await page.getByRole("button", { name: "Continuar" }).click();
 
-  await openPrizesPage(page);
+  await openWinnersPage(page);
   await expect(history(page).getByRole("listitem")).toHaveCount(2);
+  await openPrizesPage(page);
   await expect(prizeItem(page, "Box")).toContainText("2 de 2 entregadas");
 });
 
@@ -172,8 +189,9 @@ test("modo de práctica: gira sin confirmar el cierre y no deja ningún rastro",
   await dialog.getByRole("button", { name: "Cerrar" }).click();
 
   await expect(page.getByText("Participantes elegibles: 10")).toBeVisible();
-  await openPrizesPage(page);
+  await openWinnersPage(page);
   await expect(page.getByText("Aún no hay ganadores.")).toBeVisible();
+  await openPrizesPage(page);
   await expect(prizeItem(page, "Alexa")).toContainText("0 de 1 entregadas");
   await page.goto("/registro");
   await expect(page.getByText("Las inscripciones están cerradas")).toHaveCount(0);

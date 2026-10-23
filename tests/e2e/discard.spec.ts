@@ -33,6 +33,14 @@ async function openPrizesPage(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "Premios", level: 1 })).toBeVisible();
 }
 
+async function openWinnersPage(page: Page): Promise<void> {
+  await page.goto("/admin/ganadores");
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByRole("heading", { name: "Historial de ganadores", level: 1 }),
+  ).toBeVisible();
+}
+
 function history(page: Page) {
   return page.getByRole("region", { name: "Historial de ganadores" });
 }
@@ -68,14 +76,15 @@ test("«Volver a girar» descarta al ganador, lo excluye y el nuevo lleva el nú
   // Los dos salieron de la ruleta: 10 − 2 = 8 elegibles.
   await expect(page.getByText("Participantes elegibles: 8")).toBeVisible();
 
-  await openPrizesPage(page);
+  await openWinnersPage(page);
   const entries = history(page).getByRole("listitem");
   await expect(entries).toHaveCount(2);
-  await expect(entries.nth(0)).toContainText("#2 ·");
+  await expect(entries.nth(0)).toContainText("#2");
   await expect(entries.nth(0)).toContainText("Ganador");
-  await expect(entries.nth(1)).toContainText("#1 ·");
+  await expect(entries.nth(1)).toContainText("#1");
   await expect(entries.nth(1)).toContainText("Descartado");
   await expect(entries.nth(1)).toContainText(E2E_ADMIN.email);
+  await openPrizesPage(page);
   await expect(prizeItem(page, "Box")).toContainText("1 de 1 entregadas");
 });
 
@@ -93,9 +102,11 @@ test("se puede descartar a un ganador ya aceptado desde el historial y la unidad
   await winner.getByRole("button", { name: "Continuar" }).click();
   await expect(page.getByRole("button", { name: "Girar", exact: true })).toBeDisabled();
 
-  // El descarte desde el historial se hace en la pestaña Premios.
   await openPrizesPage(page);
   await expect(prizeItem(page, "Termo")).toContainText("1 de 1 entregadas");
+
+  // El descarte desde el historial se hace en la pestaña Ganadores.
+  await openWinnersPage(page);
 
   // Cancelar no cambia nada; confirmar descarta al ganador.
   await page.getByRole("button", { name: "Descartar al ganador #1" }).click();
@@ -109,8 +120,9 @@ test("se puede descartar a un ganador ya aceptado desde el historial y la unidad
   await confirm.getByRole("button", { name: "Sí, descartar" }).click();
 
   await expect(history(page).getByRole("listitem")).toContainText("Descartado");
-  await expect(prizeItem(page, "Termo")).toContainText("0 de 1 entregadas");
   await expect(page.getByRole("button", { name: "Descartar al ganador #1" })).toHaveCount(0);
+  await openPrizesPage(page);
+  await expect(prizeItem(page, "Termo")).toContainText("0 de 1 entregadas");
 
   // La unidad volvió y el descartado no vuelve a la ruleta: 10 − 1 = 9 elegibles.
   await openDrawPage(page);

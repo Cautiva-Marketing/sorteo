@@ -53,14 +53,14 @@ export function Dialog({ open, onClose, title, icon, centered = false, children 
       ref={dialogRef}
       aria-labelledby={titleId}
       onClose={handleClose}
-      className="m-auto w-[calc(100%-2rem)] max-w-md overflow-visible rounded-2xl border border-line bg-paper p-6 text-ink-900 backdrop:bg-ink-900/60"
+      className="m-auto w-[calc(100%-2rem)] max-w-md overflow-visible rounded-3xl border border-line bg-paper p-6 text-ink-900 backdrop:bg-ink-900/50 backdrop:backdrop-blur-[2px]"
     >
       {open ? (
         <div className="flex flex-col gap-4">
           {icon ? <div className="flex justify-center">{icon}</div> : null}
           <h2
             id={titleId}
-            className={`font-display text-xl font-bold text-ink-900${centered ? " text-center" : ""}`}
+            className={`font-display text-xl font-extrabold text-ink-900${centered ? " text-center" : ""}`}
           >
             {title}
           </h2>

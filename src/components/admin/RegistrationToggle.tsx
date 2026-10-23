@@ -72,7 +72,7 @@ export function RegistrationToggle({ initialOpen }: RegistrationToggleProps) {
 
   return (
     <section aria-labelledby="registration-heading" className="flex flex-col gap-4">
-      <h2 id="registration-heading" className="font-display text-xl font-bold text-ink-900">
+      <h2 id="registration-heading" className="font-display text-lg font-extrabold text-ink-900">
         Inscripciones
       </h2>
       <p className="text-base text-ink-900">

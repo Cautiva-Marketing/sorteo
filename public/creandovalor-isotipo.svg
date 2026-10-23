@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="170.6 0 65.25 58.38">
+  <defs>
+    <linearGradient id="Degradado_sin_nombre_7" x1="-983.75" y1="-385.09" x2="-983.24" y2="-385.09" gradientTransform="translate(124483.7301 -48633.7118) scale(126.3663 -126.3663)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#524a99"/>
+      <stop offset="0" stop-color="#524a99"/>
+      <stop offset=".55" stop-color="#706baf"/>
+      <stop offset=".86" stop-color="#23bcef"/>
+      <stop offset="1" stop-color="#30bce5"/>
+    </linearGradient>
+    <clipPath id="tri"><polygon points="170.6 58.27 184.35 58.31 203.4 24.73 222.14 58.38 235.86 58.22 203.81 0 170.6 58.27"/></clipPath>
+  </defs>
+  <g clip-path="url(#tri)"><rect x="170.6" y="0" width="65.25" height="58.38" fill="url(#Degradado_sin_nombre_7)"/></g>
+</svg>

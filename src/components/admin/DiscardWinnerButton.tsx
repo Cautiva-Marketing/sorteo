@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
+import { UndoIcon } from "@/components/ui/icons";
 import { adminFetch } from "@/lib/admin-fetch";
 
 export interface DiscardWinnerButtonProps {
@@ -12,6 +13,8 @@ export interface DiscardWinnerButtonProps {
   spinId: string;
   /** Número de ganador, para el texto de confirmación. */
   number: number;
+  /** `icon`: botón compacto solo con ícono (listas del sorteo); `text`: botón con texto. */
+  display?: "text" | "icon";
 }
 
 const MESSAGES = {
@@ -24,7 +27,11 @@ const MESSAGES = {
  * Descarta a un ganador desde el historial (FR-078): pide confirmación, llama al servidor y
  * refresca. La unidad vuelve al premio y la persona no vuelve a la ruleta.
  */
-export function DiscardWinnerButton({ spinId, number }: DiscardWinnerButtonProps) {
+export function DiscardWinnerButton({
+  spinId,
+  number,
+  display = "text",
+}: DiscardWinnerButtonProps) {
   const router = useRouter();
   const [, startRefresh] = useTransition();
   const [open, setOpen] = useState(false);
@@ -52,13 +59,26 @@ export function DiscardWinnerButton({ spinId, number }: DiscardWinnerButtonProps
 
   return (
     <>
-      <Button
-        variant="secondary"
-        onClick={() => setOpen(true)}
-        aria-label={`Descartar al ganador #${number}`}
-      >
-        Descartar
-      </Button>
+      {display === "icon" ? (
+        <Button
+          variant="ghost"
+          onClick={() => setOpen(true)}
+          aria-label={`Descartar al ganador #${number}`}
+          title="Descartar"
+          className="min-h-9 min-w-9 px-2"
+        >
+          <UndoIcon />
+        </Button>
+      ) : (
+        <Button
+          variant="secondary"
+          onClick={() => setOpen(true)}
+          aria-label={`Descartar al ganador #${number}`}
+        >
+          <UndoIcon />
+          Descartar
+        </Button>
+      )}
       <Dialog
         open={open}
         onClose={() => setOpen(false)}

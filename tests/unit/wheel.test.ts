@@ -15,11 +15,11 @@ describe("PALETTE", () => {
   it("tiene 6 entradas en el orden definido en el plan", () => {
     expect(PALETTE).toEqual([
       { background: "ink-900", text: "paper" },
-      { background: "paper", text: "ink-900" },
-      { background: "accent-600", text: "paper" },
-      { background: "paper", text: "ink-900" },
-      { background: "ink-600", text: "paper" },
-      { background: "paper", text: "ink-900" },
+      { background: "gold-100", text: "ink-900" },
+      { background: "gold-600", text: "ink-900" },
+      { background: "gold-100", text: "ink-900" },
+      { background: "ink-900", text: "paper" },
+      { background: "gold-600", text: "ink-900" },
     ]);
   });
 });
@@ -46,8 +46,8 @@ describe("segmentColorIndexes", () => {
     }
   });
 
-  it("los colores de fondo contiguos tampoco se repiten cuando son claros y oscuros alternados", () => {
-    // Con el ciclo de 6 (oscuro, claro, azul, claro, gris, claro) dos vecinos nunca comparten fondo.
+  it("los colores de fondo contiguos tampoco se repiten cuando son negros, crema y dorados alternados", () => {
+    // Con el ciclo de 6 (negro, crema, dorado, crema, negro, dorado) dos vecinos nunca comparten fondo.
     for (const count of [7, 13, 50, 500]) {
       const indexes = segmentColorIndexes(count);
       for (let position = 0; position < count; position += 1) {

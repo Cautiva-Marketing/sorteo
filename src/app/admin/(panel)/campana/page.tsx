@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/admin/PageHeader";
 import { PurgeDialog } from "@/components/admin/PurgeDialog";
 import { RegistrationToggle } from "@/components/admin/RegistrationToggle";
 import { formatLimaDateTime } from "@/lib/format";
@@ -11,12 +12,17 @@ export default async function CampaignPage() {
   const { open, dataPurgedAt } = await getRegistrationStatus();
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="font-display text-2xl font-bold text-ink-900">Campaña</h1>
-      <RegistrationToggle initialOpen={open} />
+    <div className="flex flex-col gap-4">
+      <PageHeader title="Campaña" subtitle="Inscripciones y cierre de la campaña." />
+      <div className="rounded-3xl border border-line bg-paper p-6">
+        <RegistrationToggle initialOpen={open} />
+      </div>
 
-      <section aria-labelledby="closure-heading" className="flex flex-col gap-4">
-        <h2 id="closure-heading" className="font-display text-xl font-bold text-ink-900">
+      <section
+        aria-labelledby="closure-heading"
+        className="flex flex-col gap-4 rounded-3xl border border-line bg-paper p-6"
+      >
+        <h2 id="closure-heading" className="font-display text-lg font-extrabold text-ink-900">
           Cierre de campaña
         </h2>
         <p className="text-base text-ink-600">

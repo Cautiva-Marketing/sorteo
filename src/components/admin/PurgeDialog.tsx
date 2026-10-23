@@ -156,7 +156,7 @@ export function PurgeDialog({ registrationOpen }: PurgeDialogProps) {
             <a
               href="/api/admin/participants/export"
               download
-              className="font-medium text-accent-600 underline"
+              className="font-medium text-gold-700 underline"
             >
               Exportar CSV
             </a>

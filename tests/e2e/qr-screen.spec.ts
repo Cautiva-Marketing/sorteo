@@ -12,13 +12,13 @@ test.beforeEach(async () => {
   await resetFirestore();
 });
 
-test("la pantalla del QR muestra el logo, el QR, el contador y el botón, sin formulario", async ({
+test("la pantalla del QR muestra el logo, el QR, el contador y los logos aliados, sin botón ni formulario", async ({
   page,
   baseURL,
 }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("img", { name: "Cautiva Marketing", exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Creando Valor", exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Regístrate y participa en el sorteo" }),
   ).toBeVisible();
@@ -29,9 +29,11 @@ test("la pantalla del QR muestra el logo, el QR, el contador y el botón, sin fo
   await expect(qr.locator("image")).toHaveCount(1);
 
   await expect(page.getByText("0 registrados")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Registrarme desde este dispositivo" }),
-  ).toHaveAttribute("href", "/registro");
+  // Sin botón para registrarse desde el mismo dispositivo; los logos aliados van al pie.
+  await expect(page.getByRole("link")).toHaveCount(0);
+  await expect(page.getByText("Registrarme desde este dispositivo")).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Satelcom", exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Cautiva Marketing", exact: true })).toBeVisible();
   await expect(page.getByLabel("Nombres completos", { exact: true })).toHaveCount(0);
 
   // Sin desplazamiento horizontal (también a 360 px en el proyecto «mobile»).
@@ -39,15 +41,6 @@ test("la pantalla del QR muestra el logo, el QR, el contador y el botón, sin fo
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflows).toBe(false);
-});
-
-test("el botón «Registrarme desde este dispositivo» lleva al formulario", async ({ page }) => {
-  await page.goto("/");
-
-  await page.getByRole("link", { name: "Registrarme desde este dispositivo" }).click();
-
-  await expect(page).toHaveURL(/\/registro$/);
-  await expect(page.getByLabel("Nombres completos", { exact: true })).toBeVisible();
 });
 
 test("el contador sube sin recargar la página (≤ 5 s)", async ({ page }) => {
@@ -85,9 +78,7 @@ test("sin conexión el contador conserva su valor sin errores y se actualiza al 
   await expect(page.getByText("2 registrados")).toBeVisible({ timeout: LIVE_TIMEOUT });
 });
 
-test("al cerrar las inscripciones el QR y el botón se reemplazan por el aviso (≤ 5 s)", async ({
-  page,
-}) => {
+test("al cerrar las inscripciones el QR se reemplaza por el aviso (≤ 5 s)", async ({ page }) => {
   await seedParticipants(3);
   await page.goto("/");
   await page.waitForLoadState("networkidle");
@@ -99,9 +90,6 @@ test("al cerrar las inscripciones el QR y el botón se reemplazan por el aviso (
     { timeout: LIVE_TIMEOUT },
   );
   await expect(page.getByRole("img", { name: /Código QR/ })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Registrarme desde este dispositivo" })).toHaveCount(
-    0,
-  );
   await expect(page.getByText("3 registrados")).toBeVisible();
 });
 
@@ -128,12 +116,13 @@ test("en una pantalla de 40 pulgadas Full HD el símbolo del QR mide al menos 45
 
   const qr = page.getByRole("img", { name: /Código QR/ });
   const box = await qr.boundingBox();
-  // El viewBox incluye la zona de silencio (4 módulos por lado): el símbolo es el resto.
+  // El viewBox incluye la zona de silencio (`data-quiet-zone` módulos por lado): el símbolo es el resto.
   const [, , total] = ((await qr.getAttribute("viewBox")) ?? "").split(" ").map(Number);
+  const quiet = Number(await qr.getAttribute("data-quiet-zone"));
 
   expect(box).not.toBeNull();
-  expect(total).toBeGreaterThan(8);
-  const symbol = ((box?.width ?? 0) * ((total ?? 0) - 8)) / (total ?? 1);
+  expect(total).toBeGreaterThan(quiet * 2);
+  const symbol = ((box?.width ?? 0) * ((total ?? 0) - quiet * 2)) / (total ?? 1);
   expect(symbol).toBeGreaterThanOrEqual(450);
 });
 
@@ -153,21 +142,36 @@ for (const viewport of [
       .boundingBox();
     const qr = await page.getByRole("img", { name: /Código QR/ }).boundingBox();
     const counter = await page.getByText(/\d+ registrados?$/).boundingBox();
-    const button = await page
-      .getByRole("link", { name: "Registrarme desde este dispositivo" })
-      .boundingBox();
+    const partners = await page.getByRole("img", { name: "Satelcom", exact: true }).boundingBox();
 
-    for (const box of [heading, qr, counter, button]) {
+    for (const box of [heading, qr, counter, partners]) {
       expect(box).not.toBeNull();
     }
-    // Orden vertical: título → QR → contador → botón, sin nada al costado.
+    // Orden vertical: título → QR → contador → logos aliados, sin nada al costado.
     expect((heading?.y ?? 0) + (heading?.height ?? 0)).toBeLessThanOrEqual(qr?.y ?? 0);
     expect((qr?.y ?? 0) + (qr?.height ?? 0)).toBeLessThanOrEqual(counter?.y ?? 0);
-    expect((counter?.y ?? 0) + (counter?.height ?? 0)).toBeLessThanOrEqual(button?.y ?? 0);
-    // Todo centrado en la ventana: el QR y el botón comparten el mismo eje vertical.
+    expect((counter?.y ?? 0) + (counter?.height ?? 0)).toBeLessThanOrEqual(partners?.y ?? 0);
+    // Todo centrado en la ventana: el QR queda sobre el eje vertical.
     const center = viewport.width / 2;
     expect(Math.abs((qr?.x ?? 0) + (qr?.width ?? 0) / 2 - center)).toBeLessThan(4);
-    expect(Math.abs((button?.x ?? 0) + (button?.width ?? 0) / 2 - center)).toBeLessThan(4);
+  });
+
+  test(`en ${viewport.width}×${viewport.height} no queda un hueco entre la tarjeta y los logos aliados`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    // El contador es lo último de la tarjeta: su borde inferior más el relleno de la tarjeta.
+    const counter = await page.getByText(/\d+ registrados?$/).boundingBox();
+    const partners = await page.getByRole("img", { name: "Satelcom", exact: true }).boundingBox();
+
+    expect(counter).not.toBeNull();
+    expect(partners).not.toBeNull();
+    const gap = (partners?.y ?? 0) - ((counter?.y ?? 0) + (counter?.height ?? 0));
+    // Relleno de la tarjeta (≈24 px) + separación al pie: menos de 120 px de blanco en total.
+    expect(gap).toBeLessThanOrEqual(120);
   });
 }
 

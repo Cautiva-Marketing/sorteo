@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   variant?: ButtonVariant;
@@ -10,13 +10,14 @@ export interface ButtonProps extends ComponentProps<"button"> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary: "bg-ink-900 text-paper uppercase tracking-wider hover:bg-ink-600",
-  secondary: "border border-ink-300 bg-paper text-ink-900 hover:bg-paper-soft",
+  secondary: "border border-line bg-paper text-ink-900 hover:bg-paper-soft",
   danger: "bg-danger-700 text-paper hover:opacity-90",
+  ghost: "text-ink-600 hover:bg-paper-soft hover:text-ink-900",
 };
 
 const baseClasses =
-  "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-4 py-2 text-base font-semibold " +
-  "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 " +
+  "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-4 py-2 text-base font-semibold " +
+  "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700 " +
   "disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Clases del botón; permite dar el mismo aspecto a un enlace de descarga o navegación. */

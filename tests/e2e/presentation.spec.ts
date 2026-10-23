@@ -41,11 +41,12 @@ test("pantalla completa: logo, premio y letrero legibles a 2 m, ventana del gana
 
   await page.getByRole("button", { name: "Pantalla completa" }).click();
 
-  // El contenedor de proyección muestra logo, premio en juego, ruleta y controles (no la lista de premios).
+  // El contenedor de proyección muestra logo, premio en juego, ruleta, controles y los paneles de premios y ganadores.
   const stage = page.getByTestId("stage-fullscreen");
   await expect(stage).toBeVisible();
-  await expect(stage.getByRole("img", { name: "Cautiva Marketing" })).toBeVisible();
-  await expect(stage.getByRole("radiogroup")).toHaveCount(0);
+  await expect(stage.getByRole("img", { name: "Creando Valor", exact: true })).toBeVisible();
+  await expect(stage.getByRole("radiogroup")).toHaveCount(1);
+  await expect(stage.getByRole("button", { name: /Descartar al ganador/ })).toHaveCount(0);
   await expect(stage.getByTestId("roulette-canvas")).toBeVisible();
   await expect(stage.getByRole("button", { name: "Salir de pantalla completa" })).toBeVisible();
 

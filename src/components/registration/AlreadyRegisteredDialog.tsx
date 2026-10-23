@@ -17,7 +17,7 @@ function InfoIcon() {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="size-14 text-accent-600"
+      className="size-14 text-gold-700"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"

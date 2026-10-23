@@ -11,16 +11,28 @@ import {
   useSyncExternalStore,
   useTransition,
 } from "react";
+import { DiscardWinnerButton } from "@/components/admin/DiscardWinnerButton";
+import { PageHeader } from "@/components/admin/PageHeader";
 import { RouletteWheel, type SpinTarget } from "@/components/admin/RouletteWheel";
 import { useFullscreen } from "@/components/admin/useFullscreen";
 import { WinnerDialog } from "@/components/admin/WinnerDialog";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
+import {
+  ExpandIcon,
+  GiftIcon,
+  PlusIcon,
+  ShrinkIcon,
+  SparklesIcon,
+  TrophyIcon,
+  VolumeIcon,
+  VolumeOffIcon,
+} from "@/components/ui/icons";
 import { Logo } from "@/components/ui/Logo";
 import { adminFetch } from "@/lib/admin-fetch";
 import { getMuted, playVictory, primeAudio, setMuted, subscribeMuted } from "@/lib/victory-sound";
-import type { PrizeView, WheelParticipant } from "@/types";
+import type { PrizeView, WheelParticipant, WinnerRecord } from "@/types";
 
 export interface DrawStageProps {
   prizes: PrizeView[];
@@ -28,6 +40,8 @@ export interface DrawStageProps {
   participants: WheelParticipant[];
   /** Las inscripciones siguen abiertas: el primer giro real pide confirmar el cierre (FR-089). */
   registrationOpen: boolean;
+  /** Ganadores activos (más reciente primero): se listan junto a la ruleta. */
+  winners: WinnerRecord[];
 }
 
 type Phase = "idle" | "confirming" | "requesting" | "spinning" | "result" | "discarding";
@@ -60,10 +74,16 @@ const MESSAGES = {
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const MIN_SIZE = 280;
-const MAX_SIZE = 560;
+const MAX_SIZE = 600;
 /** Tamaño máximo de la ruleta en pantalla completa y ancho desde el que se usan dos columnas. */
 const MAX_FULLSCREEN_SIZE = 960;
 const WIDE_VIEWPORT = 1024;
+/** Alto que ocupa todo lo que no es la ruleta en pantalla completa (letrero, botón, márgenes). */
+const FULLSCREEN_CHROME_HEIGHT = 300;
+/** Alto que ocupa todo lo que no es la ruleta fuera de pantalla completa (encabezado, letrero, botón). */
+const NORMAL_CHROME_HEIGHT = 340;
+/** Ancho de la columna de premios y ganadores en pantalla completa, con el espacio entre columnas. */
+const FULLSCREEN_SIDE_WIDTH = 480;
 
 function subscribeResize(onChange: () => void): () => void {
   window.addEventListener("resize", onChange);
@@ -138,6 +158,7 @@ export function DrawStage({
   prizes,
   participants: serverParticipants,
   registrationOpen,
+  winners,
 }: DrawStageProps) {
   const router = useRouter();
   const [, startRefresh] = useTransition();
@@ -159,6 +180,7 @@ export function DrawStage({
   const wheelBox = useRef<HTMLDivElement>(null);
   const reasonId = useId();
   const radioName = useId();
+  const winnersHeadingId = useId();
 
   const participants = useMemo(
     () =>
@@ -193,17 +215,19 @@ export function DrawStage({
     reason = prizes.length === 0 ? MESSAGES.noPrizes : MESSAGES.exhausted;
   }
 
-  // En pantalla completa la ruleta ocupa el alto disponible (y hasta el 55 % del ancho si es ancha).
+  // En pantalla completa la ruleta ocupa el alto disponible (y el ancho que deja la columna lateral).
   const wheelSize = fullscreen
     ? Math.max(
         MIN_SIZE,
         Math.min(
           MAX_FULLSCREEN_SIZE,
-          viewportHeight - 64,
-          viewportWidth >= WIDE_VIEWPORT ? Math.floor(viewportWidth * 0.55) : viewportWidth - 48,
+          viewportHeight - FULLSCREEN_CHROME_HEIGHT,
+          viewportWidth >= WIDE_VIEWPORT
+            ? viewportWidth - 48 - FULLSCREEN_SIDE_WIDTH
+            : viewportWidth - 48,
         ),
       )
-    : size;
+    : Math.min(size, Math.max(MIN_SIZE, viewportHeight - NORMAL_CHROME_HEIGHT));
 
   // Tamaño de la ruleta según el ancho disponible (mínimo 280 px: cabe en 360 px sin desborde).
   useEffect(() => {
@@ -357,7 +381,11 @@ export function DrawStage({
       ? `Girar para: ${activePrize.name}`
       : "Girar";
 
-  const bigButton = fullscreen ? "min-h-14 px-8 text-xl" : undefined;
+  const bigButton = fullscreen ? "min-h-14 px-8 text-xl" : "";
+  // El siguiente número de ganador: el más alto entre los activos + 1.
+  const round = winners.reduce((highest, entry) => Math.max(highest, entry.number), 0) + 1;
+  const pendingLabel = (count: number): string => `${count} pendiente${count === 1 ? "" : "s"}`;
+  const activePrizeName = activePrize?.name ?? (practice ? "Práctica" : "Sin premio en juego");
 
   const wheel = (
     <RouletteWheel
@@ -372,14 +400,14 @@ export function DrawStage({
   const pointerNameBox = (
     <section
       aria-label="Nombre bajo el puntero"
-      className={`mx-auto flex w-full items-center justify-center rounded-2xl border border-ink-300 bg-paper-soft px-4 py-2 text-center ${
-        fullscreen ? "min-h-24 max-w-3xl" : "min-h-14 max-w-xl"
+      className={`mx-auto flex w-full items-center justify-center rounded-2xl border-2 border-gold-600 bg-gold-100 px-4 py-2 text-center ${
+        fullscreen ? "min-h-24 max-w-3xl" : "min-h-14 max-w-md"
       }`}
     >
       <p
         aria-hidden="true"
-        className={`font-display font-bold break-words text-ink-900 ${
-          fullscreen ? "text-[2.5rem] leading-tight" : "text-xl"
+        className={`font-display font-extrabold break-words text-ink-900 uppercase ${
+          fullscreen ? "text-[2.5rem] leading-tight" : "text-lg tracking-wide"
         }`}
       >
         {pointerName || " "}
@@ -390,43 +418,23 @@ export function DrawStage({
     </section>
   );
 
-  const actionRow = (
-    <div
-      className={`flex flex-wrap items-center gap-3 ${fullscreen ? "justify-center gap-4" : ""}`}
+  const spinButton = (
+    <Button
+      className={`w-full ${fullscreen ? "max-w-2xl" : "max-w-md"} ${bigButton}`}
+      onClick={handleSpinClick}
+      disabled={busy || reason !== null}
+      loading={phase === "requesting"}
+      aria-describedby={reason ? reasonId : undefined}
     >
-      <Button
-        className={bigButton}
-        onClick={handleSpinClick}
-        disabled={busy || reason !== null}
-        loading={phase === "requesting"}
-        aria-describedby={reason ? reasonId : undefined}
-      >
-        {spinLabel}
-      </Button>
-      <Button
-        variant="secondary"
-        className={bigButton}
-        aria-pressed={muted}
-        onClick={() => setMuted(!muted)}
-      >
-        Silenciar sonido
-      </Button>
-      {fullscreen ? (
-        <Button variant="secondary" className={bigButton} onClick={() => void exitFullscreen()}>
-          Salir de pantalla completa
-        </Button>
-      ) : (
-        <Button variant="secondary" onClick={() => void enterFullscreen()} disabled={busy}>
-          Pantalla completa
-        </Button>
-      )}
-    </div>
+      <SparklesIcon className={`shrink-0 text-gold-300 ${fullscreen ? "size-6" : "size-4"}`} />
+      {spinLabel}
+    </Button>
   );
 
   const reasonAndError = (
     <>
       {reason ? (
-        <p id={reasonId} className={`text-ink-600 ${fullscreen ? "text-xl" : "text-base"}`}>
+        <p id={reasonId} className={`text-ink-600 ${fullscreen ? "text-xl" : "text-sm"}`}>
           {reason}
         </p>
       ) : null}
@@ -434,115 +442,246 @@ export function DrawStage({
     </>
   );
 
+  const muteButton = (
+    <Button
+      variant="secondary"
+      aria-pressed={muted}
+      aria-label="Silenciar sonido"
+      title="Silenciar sonido"
+      onClick={() => setMuted(!muted)}
+      className="px-3"
+    >
+      {muted ? (
+        <VolumeOffIcon className="size-5" />
+      ) : (
+        <VolumeIcon className="size-5 text-gold-700" />
+      )}
+    </Button>
+  );
+
+  const headerActions = (
+    <>
+      {muteButton}
+      <Button onClick={() => void enterFullscreen()} disabled={busy}>
+        <ExpandIcon />
+        Pantalla completa
+      </Button>
+    </>
+  );
+
+  const cardClasses = "flex flex-col gap-3 rounded-3xl border border-line bg-paper p-5";
+  const cardTitleClasses =
+    "flex items-center gap-2 text-sm font-extrabold tracking-wide text-ink-900 uppercase";
+  const chipClasses =
+    "ml-auto rounded-full border border-line bg-paper-soft px-2.5 py-0.5 text-xs font-semibold text-ink-600";
+
+  const prizesCard = (
+    <section aria-label="Premios del sorteo" className={cardClasses}>
+      <div className="flex items-center gap-2">
+        <h2 className={cardTitleClasses}>
+          <GiftIcon className="size-4 text-ink-500" />
+          Premios
+        </h2>
+        <span className={chipClasses}>
+          {`${prizes.length} Premio${prizes.length === 1 ? "" : "s"}`}
+        </span>
+        <Link
+          href="/admin/premios"
+          className="inline-flex items-center gap-1 rounded-full bg-paper-soft px-2.5 py-0.5 text-xs font-semibold text-ink-900 hover:bg-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700"
+        >
+          <PlusIcon className="size-3" />
+          Añadir
+        </Link>
+      </div>
+
+      {fullscreen ? null : (
+        <div className="rounded-2xl border border-line bg-paper-soft px-4 py-3">
+          <p className="text-[0.65rem] font-semibold tracking-[0.15em] text-ink-500 uppercase">
+            {`Premio en juego (ronda #${round})`}
+          </p>
+          <p className="mt-0.5 text-base font-extrabold text-ink-900">{activePrizeName}</p>
+        </div>
+      )}
+
+      <div
+        role="radiogroup"
+        aria-labelledby={`${radioName}-legend`}
+        className="flex max-h-56 flex-col gap-2 overflow-y-auto"
+      >
+        <p id={`${radioName}-legend`} className="sr-only">
+          Premio en juego
+        </p>
+        {prizesWithUnits.length === 0 ? (
+          <p className="text-sm text-ink-600">
+            {prizes.length === 0
+              ? "No hay premios para elegir."
+              : "Todos los premios ya fueron sorteados."}{" "}
+            <Link href="/admin/premios" className="underline hover:text-gold-700">
+              Configurar premios
+            </Link>
+          </p>
+        ) : (
+          prizesWithUnits.map((prize) => (
+            <label
+              key={prize.id}
+              className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm text-ink-900 ${
+                activePrize?.id === prize.id ? "border-ink-900 bg-paper-soft" : "border-line"
+              }`}
+            >
+              <input
+                type="radio"
+                name={radioName}
+                value={prize.id}
+                checked={activePrize?.id === prize.id}
+                disabled={busy}
+                onChange={() => setChosenPrizeId(prize.id)}
+                className="size-4 accent-ink-900"
+              />
+              <span className="font-semibold">{prize.name}</span>
+              <span className="ml-auto shrink-0 text-xs text-ink-500">
+                {pendingLabel(prize.pending)}
+              </span>
+            </label>
+          ))
+        )}
+      </div>
+
+      <label className="flex min-h-9 items-center gap-3 text-sm text-ink-900">
+        <input
+          type="checkbox"
+          checked={practice}
+          disabled={busy}
+          onChange={(event) => setPractice(event.target.checked)}
+          className="size-4 accent-ink-900"
+        />
+        Modo de práctica
+      </label>
+
+      <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-xs text-ink-500">
+        <p>
+          {"Participantes elegibles: "}
+          <span className="font-bold text-ink-900">{participants.length}</span>
+        </p>
+        <p className="flex items-center gap-1">
+          <TrophyIcon className="size-3.5 text-gold-600" />
+          <span className="font-bold text-ink-900">{winners.length}</span>
+          {winners.length === 1 ? " ganador" : " ganadores"}
+        </p>
+      </div>
+    </section>
+  );
+
+  const winnersCard = (
+    <section aria-labelledby={winnersHeadingId} className={cardClasses}>
+      <div className="flex items-center gap-2">
+        <h2 id={winnersHeadingId} className={cardTitleClasses}>
+          <TrophyIcon className="size-4 text-gold-600" />
+          Ganadores del evento
+        </h2>
+        <span className={chipClasses}>{winners.length}</span>
+      </div>
+      {winners.length === 0 ? (
+        <p className="text-sm text-ink-500">Sin ganadores todavía.</p>
+      ) : (
+        <ul
+          className={`flex flex-col gap-2 overflow-y-auto ${fullscreen ? "max-h-72" : "max-h-80"}`}
+        >
+          {winners.map((entry) => (
+            <li
+              key={entry.key}
+              className="flex items-center gap-3 rounded-2xl bg-paper-soft px-3 py-2.5"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-ink-900 text-xs font-bold text-paper">
+                {`#${entry.number}`}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-extrabold text-ink-900 uppercase">
+                  {entry.fullName}
+                </p>
+                <p className="truncate text-xs font-semibold text-gold-700">
+                  {entry.prizeName ?? "Sin premio"}
+                </p>
+              </div>
+              {!fullscreen && !entry.legacy ? (
+                <DiscardWinnerButton spinId={entry.key} number={entry.number} display="icon" />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+
+  const sideColumn = (
+    <div
+      className={`flex w-full flex-col gap-4 ${fullscreen ? "max-w-md lg:w-md lg:shrink-0" : ""}`}
+    >
+      {fullscreen ? (
+        <div className="flex flex-col gap-2 rounded-3xl border border-line bg-paper p-6 text-center">
+          <p className="text-lg font-semibold tracking-wide text-ink-500 uppercase">
+            Premio en juego
+          </p>
+          <p
+            data-testid="fullscreen-prize"
+            className="font-display text-5xl leading-tight font-extrabold break-words text-ink-900"
+          >
+            {activePrizeName}
+          </p>
+        </div>
+      ) : null}
+      {prizesCard}
+      {winnersCard}
+    </div>
+  );
+
+  const mainColumn = (
+    <div className="flex min-w-0 flex-col items-center gap-5">
+      {practice ? <Alert variant="info">Práctica: no se guarda</Alert> : null}
+      {pointerNameBox}
+      <div ref={wheelBox} className="w-full min-w-0">
+        {wheel}
+      </div>
+      {spinButton}
+      {reasonAndError}
+    </div>
+  );
+
   return (
     <section
       ref={stageRef}
-      aria-labelledby="stage-heading"
+      aria-label="Ruleta"
       data-testid={fullscreen ? "stage-fullscreen" : undefined}
       className={
-        fullscreen ? "fixed inset-0 z-50 overflow-auto bg-paper p-6" : "flex flex-col gap-4"
+        fullscreen ? "fixed inset-0 z-50 overflow-auto bg-paper-soft p-6" : "flex flex-col gap-4"
       }
     >
       {fullscreen ? (
-        <div className="mx-auto flex min-h-full max-w-[1800px] flex-col items-center justify-center gap-8 lg:flex-row">
-          <h2 id="stage-heading" className="sr-only">
-            Ruleta
-          </h2>
-          <div className="shrink-0">{wheel}</div>
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-6 text-center">
-            <Logo />
-            <div className="flex flex-col gap-2">
-              <p className="text-xl font-semibold tracking-wide text-ink-600 uppercase">
-                Premio en juego
-              </p>
-              <p
-                data-testid="fullscreen-prize"
-                className="font-display text-5xl font-bold break-words text-ink-900"
-              >
-                {activePrize?.name ?? (practice ? "Práctica" : "Sin premio en juego")}
-              </p>
-            </div>
-            {practice ? <Alert variant="info">Práctica: no se guarda</Alert> : null}
-            {pointerNameBox}
-            {actionRow}
-            {reasonAndError}
+        <>
+          <div className="mx-auto flex min-h-full max-w-[1800px] flex-col items-center justify-center gap-8 pb-16 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1">{mainColumn}</div>
+            {sideColumn}
           </div>
-        </div>
+          <div className="fixed bottom-4 left-6 opacity-90">
+            <Logo size={32} />
+          </div>
+          <div className="fixed right-6 bottom-4 flex items-center gap-2 rounded-2xl border border-line bg-paper p-2">
+            {muteButton}
+            <Button onClick={() => void exitFullscreen()}>
+              <ShrinkIcon />
+              Salir de pantalla completa
+            </Button>
+          </div>
+        </>
       ) : (
         <>
-          <h2 id="stage-heading" className="font-display text-xl font-bold text-ink-900">
-            Ruleta
-          </h2>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start">
-            <div className="flex flex-col gap-4 lg:col-start-1 lg:row-start-1">
-              <p className="text-base text-ink-600">{`Participantes elegibles: ${participants.length}`}</p>
-
-              <div
-                role="radiogroup"
-                aria-labelledby={`${radioName}-legend`}
-                className="flex flex-col gap-2"
-              >
-                <p
-                  id={`${radioName}-legend`}
-                  className="text-sm font-semibold tracking-wide uppercase"
-                >
-                  Premio en juego
-                </p>
-                {prizesWithUnits.length === 0 ? (
-                  <p className="text-base text-ink-600">
-                    {prizes.length === 0
-                      ? "No hay premios para elegir."
-                      : "Todos los premios ya fueron sorteados."}{" "}
-                    <Link href="/admin/premios" className="underline hover:text-accent-600">
-                      Configurar premios
-                    </Link>
-                  </p>
-                ) : (
-                  prizesWithUnits.map((prize) => (
-                    <label
-                      key={prize.id}
-                      className="flex min-h-11 items-center gap-3 rounded-lg border border-line px-3 py-2 text-base text-ink-900"
-                    >
-                      <input
-                        type="radio"
-                        name={radioName}
-                        value={prize.id}
-                        checked={activePrize?.id === prize.id}
-                        disabled={busy}
-                        onChange={() => setChosenPrizeId(prize.id)}
-                        className="size-4 accent-ink-900"
-                      />
-                      <span>{prize.name}</span>
-                      <span className="ml-auto text-sm text-ink-600">
-                        {`${prize.pending} pendiente${prize.pending === 1 ? "" : "s"}`}
-                      </span>
-                    </label>
-                  ))
-                )}
-              </div>
-
-              <label className="flex min-h-11 items-center gap-3 text-base text-ink-900">
-                <input
-                  type="checkbox"
-                  checked={practice}
-                  disabled={busy}
-                  onChange={(event) => setPractice(event.target.checked)}
-                  className="size-4 accent-ink-900"
-                />
-                Modo de práctica
-              </label>
-              {practice ? <Alert variant="info">Práctica: no se guarda</Alert> : null}
-            </div>
-            <div className="flex flex-col gap-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-              <div ref={wheelBox} className="w-full min-w-0">
-                {wheel}
-              </div>
-              {pointerNameBox}
-            </div>
-            <div className="flex flex-col gap-4 lg:col-start-1 lg:row-start-2">
-              {actionRow}
-              {reasonAndError}
-            </div>
+          <PageHeader
+            title="Control de ruleta y sorteo"
+            subtitle="Gestiona las rondas de premiación en vivo."
+            actions={headerActions}
+          />
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_26rem] xl:items-start">
+            {mainColumn}
+            {sideColumn}
           </div>
         </>
       )}

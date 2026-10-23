@@ -14,7 +14,7 @@ const TWO_PI = Math.PI * 2;
 const EDGE_EPSILON = 1e-9;
 
 /** Nombres de los design tokens de color que usa la rueda (`--color-<token>` en globals.css). */
-export type ColorToken = "ink-900" | "paper" | "accent-600" | "ink-600";
+export type ColorToken = "ink-900" | "paper" | "gold-100" | "gold-600";
 
 export interface SegmentStyle {
   background: ColorToken;
@@ -22,14 +22,14 @@ export interface SegmentStyle {
   text: ColorToken;
 }
 
-/** Fondos oscuros y claros alternados; los blancos nunca quedan juntos. */
+/** Negro, crema y dorado alternados; dos vecinos nunca comparten fondo. */
 export const PALETTE: ReadonlyArray<SegmentStyle> = [
   { background: "ink-900", text: "paper" },
-  { background: "paper", text: "ink-900" },
-  { background: "accent-600", text: "paper" },
-  { background: "paper", text: "ink-900" },
-  { background: "ink-600", text: "paper" },
-  { background: "paper", text: "ink-900" },
+  { background: "gold-100", text: "ink-900" },
+  { background: "gold-600", text: "ink-900" },
+  { background: "gold-100", text: "ink-900" },
+  { background: "ink-900", text: "paper" },
+  { background: "gold-600", text: "ink-900" },
 ];
 
 function mod(value: number, divisor: number): number {

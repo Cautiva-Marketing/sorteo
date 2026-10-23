@@ -22,7 +22,7 @@ async function loginAsAdmin(page: Page) {
 
 /** Comprobaciones de estilo comunes a todas las pantallas (FR-048 a FR-051, SC-018). */
 async function expectBrandStyle(page: Page) {
-  await expect(page.getByRole("img", { name: "Cautiva Marketing", exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Creando Valor", exact: true })).toBeVisible();
 
   const style = await page.evaluate(() => {
     const h1 = document.querySelector("h1");
@@ -38,8 +38,8 @@ async function expectBrandStyle(page: Page) {
   });
 
   expect(style.background).toBe(WHITE);
-  expect(style.bodyFont).toMatch(/Inter/i);
-  expect(style.headingFont).toMatch(/Space.?Grotesk/i);
+  expect(style.bodyFont).toMatch(/Montserrat/i);
+  expect(style.headingFont).toMatch(/Montserrat/i);
   // El encabezado no es una franja oscura: el logo claro necesita fondo claro.
   expect(
     style.headerBackground === null ||
@@ -71,16 +71,16 @@ test("el inicio de sesión del panel usa el estilo de marca", async ({ page }) =
   await expectBrandStyle(page);
 });
 
-test("el panel usa el estilo de marca y el encabezado es blanco", async ({ page }) => {
+test("el panel usa el estilo de marca y la barra lateral es blanca", async ({ page }) => {
   await loginAsAdmin(page);
   await expectBrandStyle(page);
 
-  const headerBackground = await page.evaluate(
-    () => getComputedStyle(document.querySelector("header") as Element).backgroundColor,
+  const sidebarBackground = await page.evaluate(
+    () => getComputedStyle(document.querySelector("aside") as Element).backgroundColor,
   );
-  expect(headerBackground).toBe(WHITE);
+  expect(sidebarBackground).toBe(WHITE);
 
-  for (const path of ["/admin/premios", "/admin/sorteo", "/admin/campana"]) {
+  for (const path of ["/admin/premios", "/admin/sorteo", "/admin/ganadores", "/admin/campana"]) {
     await page.goto(path);
     await expectBrandStyle(page);
   }

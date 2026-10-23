@@ -15,15 +15,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { expirada } = await searchParams;
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="flex justify-center border-b border-line bg-paper px-4 py-6">
-        <Logo />
+    <div className="flex min-h-dvh flex-col bg-paper-soft">
+      <header className="flex justify-center px-4 pt-10 pb-4">
+        <Logo size={52} />
       </header>
-      <main className="mx-auto w-full max-w-md flex-1 px-4 py-6">
-        <h1 className="mb-6 font-display text-2xl font-bold text-ink-900">
-          Acceso de administración
-        </h1>
-        <LoginForm sessionExpired={expirada === "1"} />
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 py-6">
+        <div className="rounded-3xl border border-line bg-paper p-6">
+          <h1 className="mb-6 font-display text-2xl font-extrabold text-ink-900">
+            Acceso de administración
+          </h1>
+          <LoginForm sessionExpired={expirada === "1"} />
+        </div>
       </main>
     </div>
   );

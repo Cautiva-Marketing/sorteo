@@ -12,8 +12,6 @@ export interface LiveRegistrationPanelProps {
   initial: PublicStatus;
   /** El QR (renderizado en el servidor); se muestra mientras las inscripciones están abiertas. */
   qr: ReactNode;
-  /** El botón «Registrarme desde este dispositivo»; solo con las inscripciones abiertas. */
-  action: ReactNode;
 }
 
 function isPublicStatus(value: unknown): value is PublicStatus {
@@ -34,10 +32,10 @@ function isPublicStatus(value: unknown): value is PublicStatus {
  * con un sondeo de `/api/status`; si las inscripciones se cierran, reemplaza el QR y el botón por
  * el aviso de cierre. Ante un fallo de red conserva el último valor, sin mostrar errores.
  *
- * Diseño: una sola columna en todos los tamaños (QR y contador en una tarjeta, botón debajo). El
+ * Diseño: una sola columna en todos los tamaños (QR y contador en una tarjeta redondeada). El
  * tamaño del QR lo limita la página según el alto de la pantalla para que nada exija desplazarse.
  */
-export function LiveRegistrationPanel({ initial, qr, action }: LiveRegistrationPanelProps) {
+export function LiveRegistrationPanel({ initial, qr }: LiveRegistrationPanelProps) {
   const [status, setStatus] = useState<PublicStatus>(initial);
 
   useEffect(() => {
@@ -85,18 +83,19 @@ export function LiveRegistrationPanel({ initial, qr, action }: LiveRegistrationP
 
   const counter = (
     <div className="flex items-center justify-center gap-3">
-      <span aria-hidden="true" className="relative flex size-3 shrink-0">
-        <span className="absolute inline-flex size-full rounded-full bg-accent-500 opacity-75 motion-safe:animate-ping" />
-        <span className="relative inline-flex size-3 rounded-full bg-accent-500" />
+      <span aria-hidden="true" className="relative flex size-3.5 shrink-0">
+        <span className="absolute inline-flex size-full rounded-full bg-gold-300 opacity-75 motion-safe:animate-ping" />
+        <span className="relative inline-flex size-3.5 rounded-full bg-gold-600" />
       </span>
-      <p className="font-display text-xl font-semibold text-ink-900">
-        {`${status.count.toLocaleString("es-PE")} ${label}`}
+      <p className="font-display text-2xl font-semibold text-ink-900">
+        <span className="font-extrabold text-gold-700">{status.count.toLocaleString("es-PE")}</span>
+        {` ${label}`}
       </p>
     </div>
   );
 
-  // Una sola columna en todos los tamaños, como el ejemplo: tarjeta con el QR y el contador, y el
-  // botón debajo. Con las inscripciones cerradas, el aviso reemplaza a la tarjeta y al botón.
+  // Una sola columna en todos los tamaños, como el ejemplo: tarjeta con el QR y el contador. Con
+  // las inscripciones cerradas, el aviso reemplaza a la tarjeta.
   if (!status.open) {
     return (
       <div className="flex flex-col gap-5">
@@ -107,12 +106,9 @@ export function LiveRegistrationPanel({ initial, qr, action }: LiveRegistrationP
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-4 rounded-2xl border border-line bg-paper p-4">
-        {qr}
-        <div className="border-t border-line pt-4">{counter}</div>
-      </div>
-      {action}
+    <div className="flex flex-col gap-4 rounded-3xl border border-line bg-paper p-5 md:p-6">
+      {qr}
+      <div className="border-t border-line pt-4">{counter}</div>
     </div>
   );
 }

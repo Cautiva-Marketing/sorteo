@@ -61,7 +61,7 @@ test("tras girar, borrar exige escribir BORRAR y deja el listado vacío y el his
   await page.getByRole("button", { name: "Girar para: Alexa" }).click();
   await expect(page.getByRole("dialog", { name: "¡Ganador #2!" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Continuar" }).click();
-  await page.goto("/admin/premios");
+  await page.goto("/admin/ganadores");
   await page.waitForLoadState("networkidle");
   const historyBefore = page.getByRole("region", { name: "Historial de ganadores" });
   await expect(historyBefore.getByText(/Celular: 9\d{8}/).first()).toBeVisible();
@@ -111,14 +111,16 @@ test("tras girar, borrar exige escribir BORRAR y deja el listado vacío y el his
   );
 
   // El historial conserva número, premio, nombre, fecha y estado, sin celular ni empresa (FR-086).
-  await page.goto("/admin/premios");
+  await page.goto("/admin/ganadores");
   await page.waitForLoadState("networkidle");
   const history = page.getByRole("region", { name: "Historial de ganadores" });
   await expect(history.getByText(/Datos personales eliminados/)).toBeVisible();
   const winners = history.getByRole("listitem");
   await expect(winners).toHaveCount(2);
-  await expect(winners.nth(0)).toContainText("#2 · Jose Participante");
-  await expect(winners.nth(1)).toContainText("#1 · Jose Participante");
+  await expect(winners.nth(0)).toContainText("#2");
+  await expect(winners.nth(0)).toContainText("Jose Participante");
+  await expect(winners.nth(1)).toContainText("#1");
+  await expect(winners.nth(1)).toContainText("Jose Participante");
   for (const text of await winners.allTextContents()) {
     expect(text).toContain("Premio: Alexa");
     expect(text).toContain("Ganador");

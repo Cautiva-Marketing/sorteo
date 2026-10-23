@@ -12,13 +12,13 @@ export interface AlertProps {
 const variantClasses: Record<AlertVariant, string> = {
   error: "border-danger-700 text-danger-700",
   success: "border-success-700 text-success-700",
-  info: "border-ink-300 text-ink-900",
+  info: "border-gold-300 bg-gold-100 text-ink-900",
 };
 
 /** Mensaje destacado: los errores se anuncian de inmediato (`alert`); el resto de forma cortés. */
 export function Alert({ variant, children, id, className }: AlertProps) {
   const classes = [
-    "rounded-lg border bg-paper px-4 py-3 text-base",
+    "rounded-xl border bg-paper px-4 py-3 text-base",
     variantClasses[variant],
     className,
   ]

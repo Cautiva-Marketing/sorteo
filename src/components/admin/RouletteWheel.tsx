@@ -39,7 +39,7 @@ const POINTER_NAME_EVERY_MS = 60;
 const MAX_PIXEL_RATIO = 3;
 const TWO_PI = Math.PI * 2;
 
-type TokenName = ColorToken | "paper-soft" | "ink-300";
+type TokenName = ColorToken | "paper-soft" | "ink-300" | "gold-300";
 
 /** Colores leídos de los design tokens: el canvas no puede usar clases de Tailwind. */
 type WheelTokens = Record<TokenName, string>;
@@ -47,8 +47,9 @@ type WheelTokens = Record<TokenName, string>;
 const TOKEN_NAMES: TokenName[] = [
   "ink-900",
   "paper",
-  "accent-600",
-  "ink-600",
+  "gold-100",
+  "gold-600",
+  "gold-300",
   "paper-soft",
   "ink-300",
 ];
@@ -64,7 +65,7 @@ function readTokens(): WheelTokens {
 
 /** Anchos de las capas de la rueda a partir del radio de los segmentos `r`. */
 const RIM_OUTER = 14;
-const RIM_WHITE = 10;
+const RIM_GOLD = 10;
 const RIM_INNER = 6;
 
 function fillDisc(ctx: CanvasRenderingContext2D, center: number, radius: number, color: string) {
@@ -90,9 +91,9 @@ function paintWheel(
   const hubRadius = size * 0.135;
   const count = participants.length;
 
-  // Aro: banda exterior oscura, anillo blanco fino y banda oscura interior donde van los pines.
+  // Aro: banda exterior oscura, anillo dorado fino y banda oscura interior donde van los pines.
   fillDisc(ctx, center, radius + RIM_OUTER, tokens["ink-900"]);
-  fillDisc(ctx, center, radius + RIM_WHITE, tokens.paper);
+  fillDisc(ctx, center, radius + RIM_GOLD, tokens["gold-600"]);
   fillDisc(ctx, center, radius + RIM_INNER, tokens["ink-900"]);
 
   if (count === 0) {
@@ -163,10 +164,10 @@ function paintWheel(
     }
   }
 
-  // Pines blancos sobre la banda oscura, en los límites de los segmentos.
+  // Pines dorados sobre la banda oscura, en los límites de los segmentos.
   const step = pinStep(count);
   const pinRadius = Math.max(1.5, radius * 0.01);
-  ctx.fillStyle = tokens.paper;
+  ctx.fillStyle = tokens["gold-300"];
   for (let index = 0; index < count; index += step) {
     const angle = -Math.PI / 2 + index * arc;
     ctx.beginPath();
@@ -181,14 +182,14 @@ function paintWheel(
   }
 }
 
-/** Capa fija: buje central y puntero triangular en el borde superior. */
+/** Capa fija: buje crema con borde dorado y puntero triangular negro en el borde superior. */
 function paintOverlay(ctx: CanvasRenderingContext2D, size: number, tokens: WheelTokens): void {
   const center = size / 2;
   const radius = size / 2 - (RIM_OUTER + 4);
   const hubRadius = size * 0.135;
 
-  fillDisc(ctx, center, hubRadius + 4, tokens["ink-900"]);
-  fillDisc(ctx, center, hubRadius, tokens.paper);
+  fillDisc(ctx, center, hubRadius + 4, tokens["gold-600"]);
+  fillDisc(ctx, center, hubRadius, tokens["gold-100"]);
 
   const tipY = center - radius + 12;
   ctx.beginPath();
@@ -196,15 +197,15 @@ function paintOverlay(ctx: CanvasRenderingContext2D, size: number, tokens: Wheel
   ctx.lineTo(center - 15, 0);
   ctx.lineTo(center + 15, 0);
   ctx.closePath();
-  ctx.fillStyle = tokens["accent-600"];
+  ctx.fillStyle = tokens["ink-900"];
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = tokens.paper;
+  ctx.strokeStyle = tokens["gold-600"];
   ctx.stroke();
 }
 
 /**
- * Ruleta en `<canvas>` (sin librerías): un segmento por participante, logo de Cautiva al centro y
+ * Ruleta en `<canvas>` (sin librerías): un segmento por participante, logo de Creando Valor al centro y
  * puntero fijo arriba. El ganador ya viene decidido por el servidor (`spinTarget`); el aleatorio
  * de este componente solo decide vueltas y desplazamiento dentro del segmento (FR-065).
  */

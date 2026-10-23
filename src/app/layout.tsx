@@ -1,15 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-// Mismas fuentes que cautivamarketing.com: Space Grotesk para títulos e Inter para el texto.
-// next/font las autoaloja (sin peticiones a Google desde el navegador) y son fuentes variables.
-const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
-const spaceGrotesk = Space_Grotesk({
+// Montserrat (variable): títulos pesados y texto limpio. next/font la autoaloja, sin peticiones a
+// Google desde el navegador.
+const montserrat = Montserrat({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-space-grotesk",
+  variable: "--font-montserrat",
 });
 
 export const metadata: Metadata = {
@@ -24,7 +23,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="es-PE" className={`${inter.variable} ${spaceGrotesk.variable}`}>
+    <html lang="es-PE" className={montserrat.variable}>
       <body className="font-sans bg-paper text-ink-900 min-h-dvh antialiased">{children}</body>
     </html>
   );

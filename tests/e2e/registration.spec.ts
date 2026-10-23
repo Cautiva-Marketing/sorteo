@@ -28,7 +28,7 @@ test("la página muestra el logo, los tres campos y ningún trámite legal", asy
   await openForm(page);
   const form = fields(page);
 
-  await expect(page.getByRole("img", { name: "Cautiva Marketing" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Creando Valor", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Regístrate en el sorteo" })).toBeVisible();
   await expect(form.fullName).toBeVisible();
   await expect(form.phone).toBeVisible();
@@ -108,7 +108,7 @@ test("«Listo, muchas gracias» muestra el aviso final sin el formulario", async
 
   await expect(page.getByText("¡Gracias por registrarte!")).toBeVisible();
   await expect(fields(page).fullName).toHaveCount(0);
-  await expect(page.getByRole("img", { name: "Cautiva Marketing" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Creando Valor", exact: true })).toBeVisible();
 });
 
 test("Escape cierra la ventana igual que «Listo, muchas gracias»", async ({ page }) => {
@@ -211,7 +211,7 @@ test("con las inscripciones cerradas se muestra el aviso y no el formulario", as
   await setRegistrationOpen(false);
   await page.goto("/registro");
 
-  await expect(page.getByRole("img", { name: "Cautiva Marketing" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Creando Valor", exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Las inscripciones están cerradas" }),
   ).toBeVisible();

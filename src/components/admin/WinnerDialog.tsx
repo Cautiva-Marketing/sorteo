@@ -55,7 +55,9 @@ export function WinnerDialog({
           </p>
         ) : null}
         <p className="text-sm font-semibold tracking-wide text-ink-600 uppercase">{prizeName}</p>
-        <p className="font-display text-2xl font-bold break-words text-ink-900">{winnerName}</p>
+        <p className="font-display text-2xl font-extrabold break-words text-ink-900">
+          {winnerName}
+        </p>
         {error ? <Alert variant="error">{error}</Alert> : null}
         <div className="flex w-full flex-col gap-2">
           <Button className="w-full" onClick={onContinue} disabled={busy}>

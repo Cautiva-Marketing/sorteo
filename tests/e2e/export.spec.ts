@@ -86,7 +86,7 @@ test("quien ganó sale en el CSV con su premio, número y estado", async ({ page
   await page.getByRole("button", { name: "Girar para: Alexa" }).click();
   await expect(page.getByRole("dialog", { name: "¡Ganador #1!" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Continuar" }).click();
-  await page.goto("/admin/premios");
+  await page.goto("/admin/ganadores");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("region", { name: "Historial de ganadores" })).toContainText(
     "Premio: Alexa",

@@ -137,7 +137,7 @@ function PrizeRow({
   const hasHistory = prize.spinCount > 0;
 
   return (
-    <li className="flex flex-col gap-3 rounded-lg border border-line bg-paper px-4 py-3">
+    <li className="flex flex-col gap-3 rounded-2xl border border-line bg-paper px-5 py-4">
       {editing ? (
         <form onSubmit={handleSubmit(save)} noValidate className="flex flex-col gap-3">
           <TextField
@@ -168,7 +168,7 @@ function PrizeRow({
       ) : (
         <>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <p className="font-display text-lg font-bold text-ink-900">{prize.name}</p>
+            <p className="font-display text-lg font-extrabold text-ink-900">{prize.name}</p>
             <p className="text-base text-ink-600">
               {`${prize.delivered} de ${prize.quantity} entregadas`}
               {prize.exhausted ? " · Sorteado" : ""}
@@ -324,7 +324,7 @@ export function PrizePanel({ prizes }: PrizePanelProps) {
       <form
         onSubmit={handleSubmit(add)}
         noValidate
-        className="flex max-w-md flex-col gap-4 rounded-lg border border-line bg-paper-soft p-4"
+        className="flex max-w-md flex-col gap-4 rounded-3xl border border-line bg-paper p-6"
       >
         <TextField
           label="Nombre del premio"
@@ -352,7 +352,7 @@ export function PrizePanel({ prizes }: PrizePanelProps) {
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       {prizes.length === 0 ? (
-        <p className="rounded-lg border border-line bg-paper px-4 py-8 text-center text-base text-ink-900">
+        <p className="rounded-3xl border border-line bg-paper px-4 py-10 text-center text-base text-ink-900">
           Aún no hay premios. Agrega el primero.
         </p>
       ) : (

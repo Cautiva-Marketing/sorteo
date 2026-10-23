@@ -22,7 +22,7 @@ function TicketIcon() {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="size-5 shrink-0 text-accent-600"
+      className="size-5 shrink-0 text-gold-700"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -93,7 +93,7 @@ export function WelcomeDialog({
     >
       {open ? <Confetti /> : null}
       <div className="flex flex-col gap-4 text-center">
-        <p className="font-display text-xl font-bold break-words text-ink-900">{fullName}</p>
+        <p className="font-display text-xl font-extrabold break-words text-ink-900">{fullName}</p>
         <p className="text-base text-ink-600">
           Tu registro se completó con éxito. Ya estás participando en el sorteo. ¡Te deseamos mucha
           suerte!
