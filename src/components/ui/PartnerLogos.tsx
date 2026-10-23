@@ -12,7 +12,7 @@ export function PartnerLogos({ className }: { className?: string }) {
         .join(" ")}
     >
       <p className="text-[0.65rem] font-semibold tracking-[0.3em] text-ink-500 uppercase">
-        Con el respaldo de
+        Organizado por
       </p>
       <div className="flex items-center justify-center gap-x-4 sm:gap-x-10">
         {/* Imágenes estáticas de /public: next/image no aporta optimización. */}

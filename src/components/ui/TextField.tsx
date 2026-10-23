@@ -22,7 +22,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
   const describedBy = [helpText ? helpId : null, error ? errorId : null].filter(Boolean).join(" ");
 
   const inputClasses = [
-    "block min-h-11 w-full rounded-xl border bg-paper px-3 py-2 text-base text-ink-900 placeholder:text-ink-500",
+    "block min-h-11 w-full rounded-xl border bg-paper px-3 py-2 text-base text-ink-900 placeholder:text-ink-500 font-medium",
     "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700",
     icon ? "pl-11" : "",
     error ? "border-danger-700" : "border-ink-300",
@@ -36,7 +36,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
       {/* El texto en mayúsculas es solo estilo: el nombre accesible no cambia. */}
       <label
         htmlFor={inputId}
-        className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-ink-600"
+        className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-ink-600"
       >
         {label}
       </label>

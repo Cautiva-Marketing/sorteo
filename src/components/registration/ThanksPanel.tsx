@@ -30,14 +30,14 @@ export function ThanksPanel() {
       </p>
       <div className="mt-2 flex flex-col items-center gap-2">
         <p className="text-base font-semibold text-ink-900">Síguenos en nuestras redes sociales</p>
-        <ul className="flex flex-wrap items-center justify-center gap-2">
+        <ul className="flex flex-col items-center gap-2 w-full max-w-xs">
           {SOCIAL_LINKS.map((link) => (
-            <li key={link.href}>
+            <li key={link.href} className="w-full">
               <a
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-4 text-base font-semibold text-ink-900 hover:bg-paper-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900"
+                className="inline-flex w-full justify-center min-h-11 items-center gap-2 rounded-full px-4 text-base font-semibold text-white bg-[#1c8acb] hover:bg-[#136fb7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c8acb]"
               >
                 <FacebookIcon className="size-5 shrink-0" />
                 {link.name}

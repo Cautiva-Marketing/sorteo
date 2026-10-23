@@ -45,7 +45,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(funct
       {/* El texto en mayúsculas es solo estilo: el nombre accesible no cambia. */}
       <label
         htmlFor={selectId}
-        className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-ink-600"
+        className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-ink-600"
       >
         {label}
       </label>

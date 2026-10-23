@@ -48,7 +48,7 @@ primer giro (003, FR-089) y a la paleta de la ruleta (003).
 - Q: ¿Qué se entiende por «Sudamérica»? → A: Los 12 países soberanos: Argentina, Bolivia, Brasil, Chile,
   Colombia, Ecuador, Guyana, Paraguay, Perú, Surinam, Uruguay y Venezuela.
 - Q: ¿Qué son «los tres logos»? → A: Los de la pantalla del QR: Creando Valor (arriba), Satelcom y Cautiva
-  Marketing (abajo, «Con el respaldo de»).
+  Marketing (abajo, «Organizado por»).
 
 ## User Scenarios & Testing *(mandatory)*
 

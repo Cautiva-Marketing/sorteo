@@ -368,7 +368,7 @@ export function RegistrationForm() {
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
         <StepProgress step={step} total={2} />
 
-        <div hidden={step !== 1} className="flex flex-col gap-5">
+        <div hidden={step !== 1} className="flex flex-col gap-7">
           <h2 ref={stepOneTitleRef} tabIndex={-1} className={stepTitleClasses}>
             Tus datos
           </h2>
@@ -397,7 +397,7 @@ export function RegistrationForm() {
           />
         </div>
 
-        <div hidden={step !== 2} className="flex flex-col gap-5">
+        <div hidden={step !== 2} className="flex flex-col gap-7">
           <h2 ref={stepTwoTitleRef} tabIndex={-1} className={stepTitleClasses}>
             Cuéntanos un poco más
           </h2>
@@ -411,7 +411,7 @@ export function RegistrationForm() {
           <TextField
             label={GUEST_QUESTION}
             autoComplete="off"
-            placeholder="Ej. Un experto en marketing digital"
+            placeholder="Ej. Marketing digital"
             error={errors.guestSuggestion?.message}
             {...register("guestSuggestion")}
           />
