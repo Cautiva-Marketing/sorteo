@@ -37,7 +37,7 @@ export function ThanksPanel() {
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex w-full justify-center min-h-11 items-center gap-2 rounded-full px-4 text-base font-semibold text-white bg-[#1c8acb] hover:bg-[#136fb7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c8acb]"
+                className="inline-flex w-full justify-center min-h-11 items-center gap-2 rounded-full px-4 text-base font-semibold text-paper bg-social hover:bg-social-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-social"
               >
                 <FacebookIcon className="size-5 shrink-0" />
                 {link.name}

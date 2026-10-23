@@ -1,6 +1,7 @@
 import { ParticipantsTable } from "@/components/admin/ParticipantsTable";
 import { requireAdmin } from "@/services/admin-auth.service";
-import { countParticipants, listParticipants } from "@/services/participants.service";
+import { listParticipants } from "@/services/participants.service";
+import { countParticipants } from "./data";
 
 /** /admin — conteo total y listado de participantes con búsqueda y paginación (FR-016, FR-017). */
 export default async function ParticipantsPage() {

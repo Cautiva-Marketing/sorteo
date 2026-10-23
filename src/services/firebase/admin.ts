@@ -1,7 +1,7 @@
 import "server-only";
 import { cert, getApp, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getFirestore, initializeFirestore, type Firestore } from "firebase-admin/firestore";
 
 function usesEmulators(): boolean {
   return Boolean(process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST);
@@ -30,8 +30,26 @@ function getAdminApp(): App {
   return getApps().length > 0 ? getApp() : initAdminApp();
 }
 
+let firestore: Firestore | null = null;
+
+/**
+ * Firestore se crea una sola vez. En producción usa REST en lugar de gRPC (arranque en frío más
+ * rápido en funciones serverless); con emuladores se mantiene el transporte por defecto.
+ */
 export function getDb(): Firestore {
-  return getFirestore(getAdminApp());
+  if (firestore) {
+    return firestore;
+  }
+  const app = getAdminApp();
+  try {
+    firestore = usesEmulators()
+      ? getFirestore(app)
+      : initializeFirestore(app, { preferRest: true });
+  } catch {
+    // Ya inicializado por otro módulo (p. ej. recarga en caliente): se reutiliza esa instancia.
+    firestore = getFirestore(app);
+  }
+  return firestore;
 }
 
 export function getAdminAuth(): Auth {

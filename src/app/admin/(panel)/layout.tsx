@@ -3,9 +3,7 @@ import type { ReactNode } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Logo } from "@/components/ui/Logo";
 import { requireAdmin } from "@/services/admin-auth.service";
-import { countParticipants } from "@/services/participants.service";
-import { listPrizes } from "@/services/prizes.service";
-import { listWinnerRecords } from "@/services/spins.service";
+import { countParticipants, listPrizes, listWinnerRecords } from "./data";
 
 export const metadata: Metadata = {
   title: "Panel de administración",

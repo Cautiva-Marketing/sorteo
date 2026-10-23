@@ -67,6 +67,19 @@ function applyFieldErrors(body: unknown, setError: UseFormSetError<PrizeFormInpu
   return applied;
 }
 
+function isPrizeView(value: unknown): value is PrizeView {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.quantity === "number" &&
+    typeof value.delivered === "number" &&
+    typeof value.spinCount === "number" &&
+    typeof value.pending === "number" &&
+    typeof value.exhausted === "boolean"
+  );
+}
+
 function generalMessage(result: ApiResult): string {
   if (result.status === 403) {
     return MESSAGES.forbidden;
@@ -234,6 +247,10 @@ export function PrizePanel({ prizes }: PrizePanelProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<PrizeView | null>(null);
+  // Cambio ya guardado que se muestra sin esperar al refresco del servidor. Solo vale
+  // mientras `prizes` sea la misma lista sobre la que se calculó: al llegar la nueva, se ignora.
+  const [overlay, setOverlay] = useState<{ base: PrizeView[]; list: PrizeView[] } | null>(null);
+  const shown = overlay !== null && overlay.base === prizes ? overlay.list : prizes;
 
   const {
     register,
@@ -256,6 +273,9 @@ export function PrizePanel({ prizes }: PrizePanelProps) {
       const result = await send("/api/admin/prizes", "POST", values);
       if (result.ok) {
         reset({ name: "", quantity: 1 });
+        if (isPrizeView(result.body)) {
+          setOverlay({ base: prizes, list: [...shown, result.body] });
+        }
         refresh();
         return;
       }
@@ -269,20 +289,24 @@ export function PrizePanel({ prizes }: PrizePanelProps) {
   }
 
   async function move(index: number, delta: -1 | 1): Promise<void> {
-    const ids = prizes.map((prize) => prize.id);
+    const reordered = [...shown];
     const target = index + delta;
-    const moved = ids[index];
-    const swapped = ids[target];
+    const moved = reordered[index];
+    const swapped = reordered[target];
     if (moved === undefined || swapped === undefined) {
       return;
     }
-    ids[index] = swapped;
-    ids[target] = moved;
+    reordered[index] = swapped;
+    reordered[target] = moved;
     setBusy(true);
     setError(null);
     try {
-      const result = await send("/api/admin/prizes/order", "PUT", { ids });
+      const result = await send("/api/admin/prizes/order", "PUT", {
+        ids: reordered.map((prize) => prize.id),
+      });
       if (result.ok) {
+        // Ya guardado: se muestra sin esperar al refresco del servidor.
+        setOverlay({ base: prizes, list: reordered });
         refresh();
       } else {
         setError(generalMessage(result));
@@ -305,6 +329,7 @@ export function PrizePanel({ prizes }: PrizePanelProps) {
     try {
       const result = await send(`/api/admin/prizes/${prize.id}`, "DELETE");
       if (result.ok) {
+        setOverlay({ base: prizes, list: shown.filter((entry) => entry.id !== prize.id) });
         refresh();
       } else if (result.status === 409) {
         setError(MESSAGES.hasHistory);
@@ -351,18 +376,18 @@ export function PrizePanel({ prizes }: PrizePanelProps) {
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
-      {prizes.length === 0 ? (
+      {shown.length === 0 ? (
         <p className="rounded-3xl border border-line bg-paper px-4 py-10 text-center text-base text-ink-900">
           Aún no hay premios. Agrega el primero.
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {prizes.map((prize, index) => (
+          {shown.map((prize, index) => (
             <PrizeRow
               key={prize.id}
               prize={prize}
               index={index}
-              total={prizes.length}
+              total={shown.length}
               busy={busy}
               onMove={move}
               onDelete={setToDelete}

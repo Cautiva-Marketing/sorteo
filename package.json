@@ -20,6 +20,7 @@
     "test:e2e": "firebase emulators:exec --project demo-sorteo --only firestore,auth \"playwright test\"",
     "emulators": "firebase emulators:start --project demo-sorteo --only firestore,auth",
     "admin:grant": "tsx scripts/grant-admin.ts",
+    "admin:repair": "tsx scripts/repair-draws.ts",
     "perf": "firebase emulators:exec --project demo-sorteo --only firestore \"node scripts/lighthouse.mjs\""
   },
   "dependencies": {

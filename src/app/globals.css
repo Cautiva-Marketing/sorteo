@@ -30,6 +30,9 @@
   --color-danger-700: #b42318;
   --color-danger-100: #fdeceb;
   --color-success-700: #067647;
+  /* Botones de redes sociales de la pantalla de gracias. */
+  --color-social: #1c8acb;
+  --color-social-hover: #136fb7;
 }
 
 /* La variable --font-montserrat la define next/font en app/layout.tsx. */

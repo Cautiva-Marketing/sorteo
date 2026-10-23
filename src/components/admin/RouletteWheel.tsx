@@ -27,6 +27,11 @@ export interface RouletteWheelProps {
   /** Lado del canvas en píxeles CSS. */
   size: number;
   spinTarget: SpinTarget | null;
+  /**
+   * Gira a velocidad constante mientras se espera al servidor; al llegar `spinTarget` la rueda
+   * desacelera desde esa velocidad hasta el ganador, sin salto.
+   */
+  freeSpin?: boolean;
   /** Nombre completo del segmento que pasa bajo el puntero (cada ~60 ms durante el giro). */
   onPointerName: (name: string) => void;
   /** El giro terminó (o era instantáneo); `winnerRef` es el del `spinTarget`. */
@@ -35,6 +40,15 @@ export interface RouletteWheelProps {
 
 /** Duración del giro y desaceleración cuártica (FR-068, research D-211). */
 const SPIN_MS = 6500;
+/** Giro libre: velocidad de crucero (rad/ms, ~1,9 vueltas/s), rampa de arranque y frenado si no hay ganador. */
+const FREE_SPIN_SPEED = 0.012;
+const FREE_SPIN_RAMP_MS = 300;
+const COAST_TAU_MS = 350;
+/** Por debajo de esta velocidad (rad/ms) no se empalma: se usa el giro completo de siempre. */
+const MIN_FREE_SPEED = 0.004;
+const MIN_SPIN_MS = 3000;
+const MAX_SPIN_MS = 12000;
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const POINTER_NAME_EVERY_MS = 60;
 const MAX_PIXEL_RATIO = 3;
 const TWO_PI = Math.PI * 2;
@@ -211,6 +225,7 @@ export function RouletteWheel({
   participants,
   size,
   spinTarget,
+  freeSpin = false,
   onPointerName,
   onSpinEnd,
 }: RouletteWheelProps) {
@@ -218,6 +233,9 @@ export function RouletteWheel({
   const wheelImageRef = useRef<HTMLCanvasElement | null>(null);
   const overlayImageRef = useRef<HTMLCanvasElement | null>(null);
   const rotationRef = useRef(0);
+  /** Velocidad angular actual (rad/ms) del giro libre; 0 si la rueda no gira libremente. */
+  const velocityRef = useRef(0);
+  const spinningRef = useRef(false);
 
   const latestParticipants = useEffectEvent(() => participants);
   const notifyPointer = useEffectEvent(onPointerName);
@@ -285,26 +303,42 @@ export function RouletteWheel({
     const list = latestParticipants();
     const winnerIndex = list.findIndex((entry) => entry.ref === spinTarget.winnerRef);
     if (winnerIndex === -1 || spinTarget.instant) {
+      velocityRef.current = 0;
       notifyEnd(spinTarget.winnerRef);
       return;
     }
+    spinningRef.current = true;
 
     const count = list.length;
     const startRotation = rotationRef.current;
+    const freeSpeed = velocityRef.current;
+    velocityRef.current = 0;
+    // Con giro libre previo, la desaceleración cuártica arranca a la velocidad actual
+    // (v₀ = 4·Δθ/T): se eligen las vueltas para durar ~SPIN_MS y T sale de Δθ.
+    const resumed = freeSpeed >= MIN_FREE_SPEED;
+    const extraTurns = resumed
+      ? Math.max(2, Math.round((freeSpeed * SPIN_MS) / 4 / TWO_PI) + Math.floor(Math.random() * 2))
+      : 6 + Math.floor(Math.random() * 3);
     const finalRotation = targetRotation({
       winnerIndex,
       count,
       startRotation,
-      extraTurns: 6 + Math.floor(Math.random() * 3),
+      extraTurns,
       offsetFraction: (Math.random() - 0.5) * 0.5,
     });
+    const duration = resumed
+      ? Math.min(
+          MAX_SPIN_MS,
+          Math.max(MIN_SPIN_MS, (4 * (finalRotation - startRotation)) / freeSpeed),
+        )
+      : SPIN_MS;
     const winner = list[winnerIndex] as WheelParticipant;
     const startedAt = performance.now();
     let lastNameAt = 0;
     let frame = 0;
 
     const tick = (now: number): void => {
-      const progress = Math.min(1, (now - startedAt) / SPIN_MS);
+      const progress = Math.min(1, (now - startedAt) / duration);
       const eased = 1 - Math.pow(1 - progress, 4);
       rotationRef.current = startRotation + (finalRotation - startRotation) * eased;
       render();
@@ -320,15 +354,77 @@ export function RouletteWheel({
         return;
       }
       rotationRef.current = ((finalRotation % TWO_PI) + TWO_PI) % TWO_PI;
+      spinningRef.current = false;
       render();
       notifyPointer(winner.fullName);
       notifyEnd(winner.ref);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      spinningRef.current = false;
+      cancelAnimationFrame(frame);
+    };
     // Solo un `key` nuevo inicia un giro; el resto de valores se leen con `useEffectEvent`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinKey]);
+
+  // Giro libre: la rueda acelera y gira a velocidad constante mientras llega el ganador.
+  useEffect(() => {
+    if (!freeSpin || window.matchMedia(REDUCED_MOTION_QUERY).matches) {
+      return;
+    }
+    const list = latestParticipants();
+    const count = list.length;
+    if (count === 0) {
+      return;
+    }
+    let last = performance.now();
+    let lastNameAt = 0;
+    let frame = 0;
+    const tick = (now: number): void => {
+      const elapsed = Math.min(now - last, 50);
+      last = now;
+      velocityRef.current = Math.min(
+        FREE_SPIN_SPEED,
+        velocityRef.current + (FREE_SPIN_SPEED / FREE_SPIN_RAMP_MS) * elapsed,
+      );
+      rotationRef.current += velocityRef.current * elapsed;
+      render();
+      if (now - lastNameAt >= POINTER_NAME_EVERY_MS) {
+        lastNameAt = now;
+        const current = list[indexAtPointer(rotationRef.current, count)];
+        if (current) {
+          notifyPointer(current.fullName);
+        }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [freeSpin]);
+
+  // Si el giro libre termina sin ganador (la petición falló), la rueda frena sola.
+  useEffect(() => {
+    if (freeSpin || spinningRef.current || velocityRef.current <= 0) {
+      return;
+    }
+    let last = performance.now();
+    let frame = 0;
+    const tick = (now: number): void => {
+      const elapsed = Math.min(now - last, 50);
+      last = now;
+      velocityRef.current *= Math.exp(-elapsed / COAST_TAU_MS);
+      rotationRef.current += velocityRef.current * elapsed;
+      render();
+      if (velocityRef.current > MIN_FREE_SPEED / 20) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        velocityRef.current = 0;
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [freeSpin]);
 
   const hubIcon = Math.round(size * 0.135 * 1.2);
 

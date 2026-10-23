@@ -31,6 +31,7 @@ import {
 import { Logo } from "@/components/ui/Logo";
 import { adminFetch } from "@/lib/admin-fetch";
 import { getMuted, playVictory, primeAudio, setMuted, subscribeMuted } from "@/lib/victory-sound";
+import { randomIndex } from "@/lib/wheel";
 import type { PrizeView, WheelParticipant, WinnerRecord } from "@/types";
 
 export interface DrawStageProps {
@@ -105,24 +106,21 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 interface ParsedSpin {
-  spinId: string | null;
+  spinId: string;
   winnerRef: string;
   winnerName: string;
   number: number;
-  prizeName: string | null;
+  prizeName: string;
 }
 
-/** Lee el ganador de la respuesta 200/201; `null` si no tiene el formato esperado. */
-function parseSpin(body: unknown, practice: boolean): ParsedSpin | null {
+/** Lee el ganador de la respuesta 201; `null` si no tiene el formato esperado. */
+function parseSpin(body: unknown): ParsedSpin | null {
   if (!isRecord(body) || !isRecord(body.winner)) {
     return null;
   }
   const { ref, fullName } = body.winner;
   if (typeof ref !== "string" || typeof fullName !== "string") {
     return null;
-  }
-  if (practice) {
-    return { spinId: null, winnerRef: ref, winnerName: fullName, number: 0, prizeName: null };
   }
   const prize = isRecord(body.prize) ? body.prize : null;
   if (
@@ -243,21 +241,50 @@ export function DrawStage({ prizes, participants: serverParticipants, winners }:
     void startSpin();
   }
 
+  /** Giro de práctica (FR-090): se elige en el navegador, sin red; no guarda nada. */
+  function startPracticeSpin(): void {
+    setError(null);
+    const chosen = participants[randomIndex(participants.length)];
+    if (!chosen) {
+      setError(MESSAGES.noEligible);
+      return;
+    }
+    spinCounter.current += 1;
+    setResult({
+      spinId: null,
+      winnerRef: chosen.ref,
+      number: 0,
+      prizeName: activePrize?.name ?? "Premio de práctica",
+      winnerName: chosen.fullName,
+      practice: true,
+      stale: false,
+    });
+    setPointerName("");
+    setSpinTarget({
+      winnerRef: chosen.ref,
+      key: spinCounter.current,
+      instant: window.matchMedia(REDUCED_MOTION_QUERY).matches,
+    });
+    setPhase("spinning");
+  }
+
   async function startSpin(): Promise<void> {
+    if (practice) {
+      startPracticeSpin();
+      return;
+    }
     setPhase("requesting");
     setError(null);
     try {
-      const response = practice
-        ? await adminFetch("/api/admin/spins/practice", { method: "POST" })
-        : await adminFetch("/api/admin/spins", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prizeId: activePrize?.id }),
-          });
+      const response = await adminFetch("/api/admin/spins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prizeId: activePrize?.id }),
+      });
       const body = await readJson(response);
 
       if (response.ok) {
-        const parsed = parseSpin(body, practice);
+        const parsed = parseSpin(body);
         if (parsed) {
           const known = participants.some((entry) => entry.ref === parsed.winnerRef);
           const instant = !known || window.matchMedia(REDUCED_MOTION_QUERY).matches;
@@ -268,7 +295,7 @@ export function DrawStage({ prizes, participants: serverParticipants, winners }:
             number: parsed.number,
             prizeName: parsed.prizeName ?? activePrize?.name ?? "Premio de práctica",
             winnerName: parsed.winnerName,
-            practice,
+            practice: false,
             stale: !known,
           });
           setPointerName("");
@@ -367,6 +394,7 @@ export function DrawStage({ prizes, participants: serverParticipants, winners }:
       participants={participants}
       size={wheelSize}
       spinTarget={spinTarget}
+      freeSpin={phase === "requesting"}
       onPointerName={setPointerName}
       onSpinEnd={handleSpinEnd}
     />

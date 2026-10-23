@@ -7,6 +7,7 @@ import {
   labelLayout,
   PALETTE,
   pinStep,
+  randomIndex,
   segmentColorIndexes,
   targetRotation,
 } from "@/lib/wheel";
@@ -226,5 +227,30 @@ describe("pinStep", () => {
     expect(pinStep(51)).toBe(2);
     expect(pinStep(100)).toBe(2);
     expect(pinStep(101)).toBe(5);
+  });
+});
+
+describe("randomIndex", () => {
+  it("devuelve siempre un índice dentro del rango", () => {
+    for (let count = 1; count <= 40; count += 1) {
+      const index = randomIndex(count);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(index).toBeLessThan(count);
+    }
+  });
+
+  it("descarta los valores que sesgarían el módulo", () => {
+    const values = [0xffffffff, 0xfffffffe, 7];
+    const index = randomIndex(10, (buffer) => {
+      buffer[0] = values.shift() as number;
+    });
+    // 2^32 % 10 = 6: los dos primeros valores caen en la zona sesgada y se rechazan.
+    expect(index).toBe(7);
+    expect(values).toHaveLength(0);
+  });
+
+  it("rechaza cantidades inválidas", () => {
+    expect(() => randomIndex(0)).toThrow(RangeError);
+    expect(() => randomIndex(2.5)).toThrow(RangeError);
   });
 });

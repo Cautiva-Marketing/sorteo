@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/admin/PageHeader";
 import { WinnerHistory } from "@/components/admin/WinnerHistory";
 import { requireAdmin } from "@/services/admin-auth.service";
-import { listWinnerRecords } from "@/services/spins.service";
+import { listWinnerRecords } from "../data";
 
 // El historial cambia con cada giro: nunca se sirve desde caché.
 export const dynamic = "force-dynamic";

@@ -294,13 +294,12 @@ export async function spin(
 
     try {
       const committed = await commitSpin(prizeId, chosenId, admin);
-      const saved = await getDb().collection(SPINS_COLLECTION).doc(committed.id).get();
-      const createdAt = toDate(saved.data()?.createdAt) ?? new Date();
       return {
         id: committed.id,
         number: committed.number,
         status: "active",
-        createdAt: createdAt.toISOString(),
+        // Hora del servidor aproximada: evita una lectura más solo para devolver `createdAt`.
+        createdAt: new Date().toISOString(),
         prize: { id: prizeId, name: committed.prizeName },
         winner: { ref: participantRef(chosenId), fullName: committed.fullName },
       };

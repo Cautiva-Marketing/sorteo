@@ -58,6 +58,31 @@ export function segmentColorIndexes(count: number): number[] {
   return indexes;
 }
 
+/**
+ * Entero uniforme en `[0, count)` sin sesgo de módulo (muestreo por rechazo sobre 32 bits). El
+ * generador es inyectable para las pruebas; por defecto usa `crypto.getRandomValues`.
+ */
+export function randomIndex(
+  count: number,
+  fillRandom: (buffer: Uint32Array) => void = (buffer) => {
+    crypto.getRandomValues(buffer);
+  },
+): number {
+  if (!Number.isInteger(count) || count < 1) {
+    throw new RangeError("La cantidad debe ser un entero mayor que 0.");
+  }
+  const range = 2 ** 32;
+  const limit = range - (range % count);
+  const buffer = new Uint32Array(1);
+  for (;;) {
+    fillRandom(buffer);
+    const value = buffer[0] as number;
+    if (value < limit) {
+      return value % count;
+    }
+  }
+}
+
 /** Segmento bajo el puntero para una rotación dada (`0..count−1`). */
 export function indexAtPointer(rotation: number, count: number): number {
   const arc = TWO_PI / count;

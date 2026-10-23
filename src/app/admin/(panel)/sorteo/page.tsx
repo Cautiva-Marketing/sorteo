@@ -1,7 +1,6 @@
 import { DrawStage } from "@/components/admin/DrawStage";
 import { requireAdmin } from "@/services/admin-auth.service";
-import { listPrizes } from "@/services/prizes.service";
-import { listWheelParticipants, listWinnerRecords } from "@/services/spins.service";
+import { listPrizes, listWheelParticipants, listWinnerRecords } from "../data";
 
 // Premios y participantes cambian con cada giro: nunca se sirven desde caché.
 export const dynamic = "force-dynamic";

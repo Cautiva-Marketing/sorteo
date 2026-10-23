@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/admin/PageHeader";
 import { PrizePanel } from "@/components/admin/PrizePanel";
 import { requireAdmin } from "@/services/admin-auth.service";
-import { listPrizes } from "@/services/prizes.service";
+import { listPrizes } from "../data";
 
 // Los premios cambian con cada giro: nunca se sirven desde caché.
 export const dynamic = "force-dynamic";

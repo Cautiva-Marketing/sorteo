@@ -96,14 +96,15 @@ export async function createPrize(input: PrizeInput, adminUid: string): Promise<
   const nameKey = nameKeyOf(input.name);
 
   const order = await db.runTransaction(async (transaction) => {
-    await transaction.get(counterRef());
-    const duplicate = await transaction.get(
-      prizesCollection().where("nameKey", "==", nameKey).limit(1),
-    );
+    // Las tres lecturas son independientes: se lanzan juntas (una sola ida y vuelta de red).
+    const [, duplicate, last] = await Promise.all([
+      transaction.get(counterRef()),
+      transaction.get(prizesCollection().where("nameKey", "==", nameKey).limit(1)),
+      transaction.get(prizesCollection().orderBy("order", "desc").limit(1)),
+    ]);
     if (!duplicate.empty) {
       throw new DuplicatePrizeNameError();
     }
-    const last = await transaction.get(prizesCollection().orderBy("order", "desc").limit(1));
     const nextOrder = last.empty ? 1 : Number(last.docs[0]?.data().order ?? 0) + 1;
 
     transaction.set(
@@ -143,15 +144,15 @@ export async function updatePrize(id: string, input: PrizeInput): Promise<PrizeV
   const nameKey = nameKeyOf(input.name);
 
   return db.runTransaction(async (transaction) => {
-    await transaction.get(counterRef());
-    const snapshot = await transaction.get(prizeRef);
+    const [, snapshot, duplicates] = await Promise.all([
+      transaction.get(counterRef()),
+      transaction.get(prizeRef),
+      transaction.get(prizesCollection().where("nameKey", "==", nameKey).limit(2)),
+    ]);
     const current = snapshot.data();
     if (!snapshot.exists || !current) {
       throw new PrizeNotFoundError();
     }
-    const duplicates = await transaction.get(
-      prizesCollection().where("nameKey", "==", nameKey).limit(2),
-    );
     if (duplicates.docs.some((doc) => doc.id !== id)) {
       throw new DuplicatePrizeNameError();
     }

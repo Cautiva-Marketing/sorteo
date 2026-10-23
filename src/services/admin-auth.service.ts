@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { errorResponse } from "@/lib/http";
 import { getAdminAuth } from "@/services/firebase/admin";
 import type { AdminIdentity } from "@/types";
@@ -92,7 +93,10 @@ export function clearSession(): string {
 type CookieCheck =
   { status: "ok"; identity: AdminIdentity } | { status: "unauthorized" } | { status: "forbidden" };
 
-/** Verifica la cookie de sesión (con revocación) y el claim `admin`. */
+/**
+ * Verifica la cookie de sesión y el claim `admin`. Se comprueban solo la firma y la vigencia (local,
+ * sin llamar a Firebase Auth en cada petición): una sesión revocada sigue válida hasta que vence (8 h).
+ */
 async function checkSessionCookie(cookie: string | undefined): Promise<CookieCheck> {
   if (!cookie) {
     return { status: "unauthorized" };
@@ -100,7 +104,7 @@ async function checkSessionCookie(cookie: string | undefined): Promise<CookieChe
   const auth = getAdminAuth();
   let decoded: Awaited<ReturnType<typeof auth.verifySessionCookie>>;
   try {
-    decoded = await auth.verifySessionCookie(cookie, true);
+    decoded = await auth.verifySessionCookie(cookie);
   } catch {
     return { status: "unauthorized" };
   }
@@ -114,14 +118,14 @@ async function checkSessionCookie(cookie: string | undefined): Promise<CookieChe
  * Para páginas y layouts del panel: exige una sesión de administrador o redirige a
  * `/admin/login`. Debe llamarse en el servidor antes de leer cualquier dato.
  */
-export async function requireAdmin(): Promise<AdminIdentity> {
+export const requireAdmin = cache(async (): Promise<AdminIdentity> => {
   const cookieStore = await cookies();
   const result = await checkSessionCookie(cookieStore.get(SESSION_COOKIE_NAME)?.value);
   if (result.status !== "ok") {
     redirect(LOGIN_PATH);
   }
   return result.identity;
-}
+});
 
 function readCookie(request: Request, name: string): string | undefined {
   const header = request.headers.get("cookie");
