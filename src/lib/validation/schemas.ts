@@ -1,16 +1,24 @@
 import { z } from "zod";
-import { COUNTRY_CODES, DEFAULT_COUNTRY } from "@/lib/validation/countries";
+import { INTEREST_VALUES } from "@/lib/interest";
+import { COUNTRY_CODES, DEFAULT_COUNTRY, type CountryCode } from "@/lib/validation/countries";
 import { normalizePhone, phoneErrorMessage } from "@/lib/validation/phone";
 
 /** Máximos de longitud (FR-003, FR-005). */
 export const FULL_NAME_MAX = 100;
 export const COMPANY_MIN = 2;
 export const COMPANY_MAX = 100;
+/** Largo de las respuestas de texto libre del paso 2 (FR-126). */
+export const ANSWER_MIN = 2;
+export const ANSWER_MAX = 100;
 
 const FULL_NAME_MESSAGE = "Ingresa tu nombre usando solo letras, espacios y tildes.";
 const PHONE_REQUIRED_MESSAGE = "Ingresa tu número de celular.";
 const COUNTRY_MESSAGE = "Elige un país de la lista.";
-const CRM_MESSAGE = "La respuesta no es válida.";
+const INTEREST_MESSAGE = "Elige una opción.";
+const ANSWER_MAX_MESSAGE = `La respuesta no puede pasar de ${ANSWER_MAX} caracteres.`;
+const ANSWER_CONTROL_MESSAGE = "La respuesta no puede contener caracteres especiales de control.";
+const TRAINING_AREA_MESSAGE = `Cuéntanos en qué área te gustaría capacitarte (mínimo ${ANSWER_MIN} caracteres).`;
+const GUEST_MESSAGE = `Cuéntanos qué invitado te gustaría que trajéramos (mínimo ${ANSWER_MIN} caracteres).`;
 /** Mínimo de letras del nombre en total (un solo nombre es válido, FR-099). */
 const FULL_NAME_MIN_LETTERS = 2;
 const CONTROL_CHARACTERS = /\p{Cc}/u;
@@ -56,44 +64,84 @@ const companySchema = z
   );
 
 /**
+ * Respuesta de texto libre del paso 2: NFC, cualquier espacio en blanco (saltos de línea y tabulaciones
+ * incluidos) pasa a un espacio simple y se recorta; después no puede quedar ningún carácter de control y
+ * el largo debe estar entre `ANSWER_MIN` y `ANSWER_MAX` (research D-404). Es texto plano: nunca se
+ * interpreta como HTML ni como fórmula (el CSV la neutraliza).
+ */
+function answerSchema(requiredMessage: string) {
+  return z
+    .string({ error: requiredMessage })
+    .transform((value) => collapseSpaces(value.normalize("NFC")))
+    .pipe(
+      z
+        .string()
+        .refine((value) => !CONTROL_CHARACTERS.test(value), ANSWER_CONTROL_MESSAGE)
+        .min(ANSWER_MIN, requiredMessage)
+        .max(ANSWER_MAX, ANSWER_MAX_MESSAGE),
+    );
+}
+
+/** Interés Sí / Tal vez / No: obligatorio y sin valor por defecto (ninguna opción preseleccionada). */
+const interestSchema = z.enum(INTEREST_VALUES, { error: INTEREST_MESSAGE });
+
+/** País del celular; Perú si no llega. */
+const countrySchema = z.enum(COUNTRY_CODES, { error: COUNTRY_MESSAGE }).default(DEFAULT_COUNTRY);
+
+/** Número local tal como lo escribe la persona; se valida junto con el país (`phoneRefinement`). */
+const phoneInputSchema = z.string({ error: PHONE_REQUIRED_MESSAGE });
+
+function toCountryCode(value: unknown): CountryCode | null {
+  return COUNTRY_CODES.find((code) => code === value) ?? null;
+}
+
+/**
+ * El celular depende del país, por eso se valida a nivel de objeto (research D-303). Compartida por
+ * `registrationSchema` y `registrationCheckSchema` para que ambos acepten y rechacen lo mismo.
+ */
+function hasValidPhone(data: { country: unknown; phone: unknown }): boolean {
+  const country = toCountryCode(data.country);
+  if (typeof data.phone !== "string" || country === null) {
+    return true; // ya lo informan `phone` o `country`
+  }
+  return normalizePhone(country, data.phone) !== null;
+}
+
+/**
+ * Opciones de `.refine(hasValidPhone, …)`. `when` fuerza la comprobación aunque otro campo ya tenga
+ * errores, para informar todos los errores a la vez.
+ */
+const phoneRefinement = {
+  path: ["phone"],
+  error: (issue: { input?: unknown }) => {
+    const input = issue.input as { country?: unknown } | undefined;
+    return phoneErrorMessage(toCountryCode(input?.country) ?? DEFAULT_COUNTRY);
+  },
+  when: () => true,
+};
+
+/**
  * Esquema único del registro, compartido por el formulario (React Hook Form) y por el Route
  * Handler (constitución II). Entrada: valores tal como los escribe el visitante; salida:
- * valores normalizados (NFC, espacios colapsados, celular en E.164).
+ * valores normalizados (NFC, espacios colapsados, celular en E.164). Las cuatro respuestas del paso 2
+ * son obligatorias.
  */
 export const registrationSchema = z
   .object({
     fullName: fullNameSchema,
-    /** País del celular; Perú si no llega (cuerpo anterior a la feature 004). */
-    country: z.enum(COUNTRY_CODES, { error: COUNTRY_MESSAGE }).default(DEFAULT_COUNTRY),
-    /** Número local tal como lo escribe la persona; se valida junto con el país (abajo). */
-    phone: z.string({ error: PHONE_REQUIRED_MESSAGE }),
+    country: countrySchema,
+    phone: phoneInputSchema,
     company: companySchema,
-    /** Interés opcional en el CRM con Agente IA; `false` si no llega. */
-    crmInterest: z.boolean({ error: CRM_MESSAGE }).default(false),
+    /** «¿En qué área te gustaría capacitarte?» (texto libre). */
+    trainingArea: answerSchema(TRAINING_AREA_MESSAGE),
+    /** «¿Qué invitado te gustaría que trajéramos a Creando Valor?» (texto libre). */
+    guestSuggestion: answerSchema(GUEST_MESSAGE),
+    /** Interés en el CRM con Agente IA de Cautiva. */
+    crmInterest: interestSchema,
+    /** Interés en un GPS satelital o cámara de Satelcom. */
+    gpsInterest: interestSchema,
   })
-  // El celular depende del país, por eso se valida a nivel de objeto (research D-303). `when`
-  // fuerza la comprobación aunque el nombre o la empresa ya tengan errores, para informar todos
-  // los errores a la vez.
-  .refine(
-    (data) => {
-      if (
-        typeof data.phone !== "string" ||
-        !(COUNTRY_CODES as readonly string[]).includes(data.country)
-      ) {
-        return true;
-      }
-      return normalizePhone(data.country, data.phone) !== null;
-    },
-    {
-      path: ["phone"],
-      error: (issue) => {
-        const input = issue.input as { country?: unknown } | undefined;
-        const country = COUNTRY_CODES.find((code) => code === input?.country) ?? DEFAULT_COUNTRY;
-        return phoneErrorMessage(country);
-      },
-      when: () => true,
-    },
-  )
+  .refine(hasValidPhone, phoneRefinement)
   .transform(({ country, phone, ...rest }) => ({
     ...rest,
     // Ya validado arriba; el `??` solo satisface al compilador.
@@ -105,6 +153,17 @@ export type RegistrationFormInput = z.input<typeof registrationSchema>;
 
 /** Datos validados y normalizados. */
 export type RegistrationInput = z.output<typeof registrationSchema>;
+
+/**
+ * Cuerpo de `POST /api/registrations/check` (paso 1 del formulario): solo el país y el celular, con la
+ * misma regla que el registro. Salida: el celular en E.164.
+ */
+export const registrationCheckSchema = z
+  .object({ country: countrySchema, phone: phoneInputSchema })
+  .refine(hasValidPhone, phoneRefinement)
+  .transform(({ country, phone }) => ({ phone: normalizePhone(country, phone) ?? phone }));
+
+export type RegistrationCheckInput = z.output<typeof registrationCheckSchema>;
 
 /** Cuerpo de `PUT /api/admin/registration`: abrir (`true`) o cerrar (`false`) las inscripciones. */
 export const registrationStatusSchema = z.object({

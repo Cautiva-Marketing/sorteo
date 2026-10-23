@@ -10,7 +10,14 @@ const validBody = {
   fullName: "José Núñez Güemes",
   phone: "987 654 321",
   company: "Cautiva Marketing",
+  trainingArea: "Ventas y atención al cliente",
+  guestSuggestion: "Un experto en marketing digital",
+  crmInterest: "maybe",
+  gpsInterest: "no",
 };
+
+/** Campos de respuesta del paso 2: todos obligatorios. */
+const ANSWER_FIELDS = ["trainingArea", "guestSuggestion", "crmInterest", "gpsInterest"] as const;
 
 function registrationRequest(
   body: unknown,
@@ -46,18 +53,25 @@ describe("POST /api/registrations", () => {
       fullName: "José Núñez Güemes",
       phone: "+51987654321",
       company: "Cautiva Marketing",
+      trainingArea: "Ventas y atención al cliente",
+      guestSuggestion: "Un experto en marketing digital",
+      crmInterest: "maybe",
+      gpsInterest: "no",
       drawId: null,
     });
     // Marca de tiempo de Firestore (el servidor fija la hora).
     expect(data?.createdAt.toDate()).toBeInstanceOf(Date);
-    // Minimización de datos: sin campos adicionales y sin evidencia de consentimiento.
+    // Minimización de datos: solo los campos permitidos y sin evidencia de consentimiento.
     expect(Object.keys(data ?? {}).sort()).toEqual([
       "company",
       "createdAt",
       "crmInterest",
       "drawId",
       "fullName",
+      "gpsInterest",
+      "guestSuggestion",
       "phone",
+      "trainingArea",
     ]);
   });
 
@@ -79,23 +93,98 @@ describe("POST /api/registrations", () => {
     expect(snapshot.data()).not.toHaveProperty("country");
   });
 
-  it("201: sin crmInterest guarda false y con crmInterest: true guarda true", async () => {
-    await POST(registrationRequest(validBody));
-    const sin = (await getDb().collection("participants").doc("+51987654321").get()).data();
-    expect(sin?.crmInterest).toBe(false);
-
-    const response = await POST(
-      registrationRequest({ ...validBody, phone: "912 345 678", crmInterest: true }),
-    );
-    expect(response.status).toBe(201);
-    const con = (await getDb().collection("participants").doc("+51912345678").get()).data();
-    expect(con?.crmInterest).toBe(true);
+  it("201: guarda tal cual cada combinación de Sí / Tal vez / No", async () => {
+    const combos = [
+      ["yes", "no", "+51987654321", "987 654 321"],
+      ["maybe", "yes", "+51912345678", "912 345 678"],
+      ["no", "maybe", "+51923456789", "923 456 789"],
+    ] as const;
+    for (const [crmInterest, gpsInterest, , phone] of combos) {
+      const response = await POST(
+        registrationRequest({ ...validBody, phone, crmInterest, gpsInterest }),
+      );
+      expect(response.status).toBe(201);
+    }
+    for (const [crmInterest, gpsInterest, id] of combos) {
+      const data = (await getDb().collection("participants").doc(id).get()).data();
+      expect(data).toMatchObject({ crmInterest, gpsInterest });
+    }
   });
 
-  it("400 VALIDATION_ERROR: un crmInterest que no es booleano se rechaza", async () => {
-    const response = await POST(registrationRequest({ ...validBody, crmInterest: "si" }));
+  it("201: un texto con saltos de línea y espacios repetidos se guarda en una sola línea", async () => {
+    const response = await POST(
+      registrationRequest({
+        ...validBody,
+        trainingArea: "  Ventas\n  y \t marketing ",
+        guestSuggestion: "Un\r\nexperto",
+      }),
+    );
+    expect(response.status).toBe(201);
+    const data = (await getDb().collection("participants").doc("+51987654321").get()).data();
+    expect(data?.trainingArea).toBe("Ventas y marketing");
+    expect(data?.guestSuggestion).toBe("Un experto");
+  });
+
+  it("201: un texto con etiquetas HTML se guarda tal cual, como texto plano", async () => {
+    const html = "<script>alert(1)</script>";
+    const response = await POST(registrationRequest({ ...validBody, trainingArea: html }));
+    expect(response.status).toBe(201);
+    const data = (await getDb().collection("participants").doc("+51987654321").get()).data();
+    expect(data?.trainingArea).toBe(html);
+  });
+
+  it("400 VALIDATION_ERROR: cada respuesta ausente se informa en su campo y no guarda nada", async () => {
+    for (const field of ANSWER_FIELDS) {
+      const body = Object.fromEntries(Object.entries(validBody).filter(([key]) => key !== field));
+      const response = await POST(registrationRequest(body));
+      expect(response.status, field).toBe(400);
+      const json = await response.json();
+      expect(json.code).toBe("VALIDATION_ERROR");
+      expect(Object.keys(json.fieldErrors), field).toEqual([field]);
+    }
+    expect(await participantCount()).toBe(0);
+  });
+
+  it("400 VALIDATION_ERROR: respuestas de texto vacías, de 1 o de 101 caracteres se rechazan", async () => {
+    for (const field of ["trainingArea", "guestSuggestion"] as const) {
+      for (const value of ["", "   ", "a", "a".repeat(101)]) {
+        const response = await POST(registrationRequest({ ...validBody, [field]: value }));
+        expect(response.status, `${field}=${value.length}`).toBe(400);
+        expect(Object.keys((await response.json()).fieldErrors)).toEqual([field]);
+      }
+    }
+    expect(await participantCount()).toBe(0);
+  });
+
+  it("400 VALIDATION_ERROR: un interés fuera de yes / maybe / no se rechaza", async () => {
+    for (const field of ["crmInterest", "gpsInterest"] as const) {
+      for (const value of ["si", "YES", true, false, 1, null]) {
+        const response = await POST(registrationRequest({ ...validBody, [field]: value }));
+        expect(response.status, `${field}=${String(value)}`).toBe(400);
+        const json = await response.json();
+        expect(json.fieldErrors[field]).toEqual(["Elige una opción."]);
+      }
+    }
+    expect(await participantCount()).toBe(0);
+  });
+
+  it("400 VALIDATION_ERROR: el cuerpo anterior (casilla booleana, sin las demás respuestas) no registra", async () => {
+    const response = await POST(
+      registrationRequest({
+        fullName: "José Núñez Güemes",
+        phone: "987 654 321",
+        company: "Cautiva Marketing",
+        crmInterest: true,
+      }),
+    );
     expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe("VALIDATION_ERROR");
+    const json = await response.json();
+    expect(Object.keys(json.fieldErrors).sort()).toEqual([
+      "crmInterest",
+      "gpsInterest",
+      "guestSuggestion",
+      "trainingArea",
+    ]);
     expect(await participantCount()).toBe(0);
   });
 
@@ -153,6 +242,7 @@ describe("POST /api/registrations", () => {
     const body = await response.json();
     expect(body.code).toBe("VALIDATION_ERROR");
     expect(Object.keys(body.fieldErrors).sort()).toEqual(["company", "fullName", "phone"]);
+    // Las respuestas del paso 2 son válidas: no aparecen entre los errores.
     expect(body.fieldErrors.phone[0]).toMatch(/celular/i);
     expect(await participantCount()).toBe(0);
   });

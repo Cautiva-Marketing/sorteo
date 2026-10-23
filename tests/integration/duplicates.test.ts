@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearFirestore } from "./helpers";
 import { POST } from "@/app/api/registrations/route";
+import { POST as CHECK } from "@/app/api/registrations/check/route";
 import { getDb } from "@/services/firebase/admin";
 
 // La primera llamada a Firestore del proceso tarda varios segundos con el emulador.
@@ -11,8 +12,20 @@ function body(overrides: Record<string, unknown> = {}) {
     fullName: "José Núñez Güemes",
     phone: "987654321",
     company: "Cautiva Marketing",
+    trainingArea: "Ventas y atención al cliente",
+    guestSuggestion: "Un experto en marketing digital",
+    crmInterest: "no",
+    gpsInterest: "no",
     ...overrides,
   };
+}
+
+function checkRequest(payload: unknown): Request {
+  return new Request("http://localhost:3000/api/registrations/check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 function registrationRequest(payload: unknown): Request {
@@ -92,20 +105,52 @@ describe("registros duplicados por celular", () => {
     });
 
     const response = await POST(registrationRequest(body({ country: "PE" })));
+    expect((await CHECK(checkRequest({ country: "PE", phone: "987654321" }))).status).toBe(409);
 
     expect(response.status).toBe(409);
     expect(await participantDocs()).toHaveLength(1);
   });
 
-  it("un duplicado con crmInterest: true no cambia la respuesta guardada", async () => {
-    const first = await POST(registrationRequest(body({ crmInterest: false })));
+  it("un duplicado con otras cuatro respuestas no modifica ninguna de las guardadas", async () => {
+    const first = await POST(registrationRequest(body()));
     expect(first.status).toBe(201);
 
-    const second = await POST(registrationRequest(body({ crmInterest: true })));
+    const second = await POST(
+      registrationRequest(
+        body({
+          trainingArea: "Finanzas",
+          guestSuggestion: "Otra persona",
+          crmInterest: "yes",
+          gpsInterest: "yes",
+        }),
+      ),
+    );
 
     expect(second.status).toBe(409);
     const stored = (await getDb().collection("participants").doc("+51987654321").get()).data();
-    expect(stored?.crmInterest).toBe(false);
+    expect(stored).toMatchObject({
+      trainingArea: "Ventas y atención al cliente",
+      guestSuggestion: "Un experto en marketing digital",
+      crmInterest: "no",
+      gpsInterest: "no",
+    });
+  });
+
+  it("carrera: el celular estaba libre al comprobar el paso 1 pero otra persona lo registra antes del envío", async () => {
+    const check = await CHECK(checkRequest({ phone: "987654321" }));
+    expect(check.status).toBe(200);
+
+    const other = await POST(
+      registrationRequest(body({ fullName: "Otra Persona", crmInterest: "yes" })),
+    );
+    expect(other.status).toBe(201);
+
+    const late = await POST(registrationRequest(body({ crmInterest: "no" })));
+    expect(late.status).toBe(409);
+    expect(((await late.json()) as { code: string }).code).toBe("ALREADY_REGISTERED");
+    const docs = await participantDocs();
+    expect(docs).toHaveLength(1);
+    expect(docs[0]?.data()).toMatchObject({ fullName: "Otra Persona", crmInterest: "yes" });
   });
 
   it("10 envíos simultáneos con el mismo celular crean exactamente 1 documento", async () => {

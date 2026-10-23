@@ -2,7 +2,7 @@ import { toCsv } from "@/lib/csv";
 import { formatLimaDateTime } from "@/lib/format";
 import { peruNational } from "@/lib/validation/phone";
 import { requireAdminApi } from "@/services/admin-auth.service";
-import { listParticipants } from "@/services/participants.service";
+import { listParticipantsForExport } from "@/services/participants.service";
 import { getWinnerLookup } from "@/services/spins.service";
 
 // Con miles de participantes la lectura y la serialización pueden tardar unos segundos.
@@ -23,7 +23,10 @@ export async function GET(request: Request): Promise<Response> {
     return admin;
   }
 
-  const [participants, lookup] = await Promise.all([listParticipants(), getWinnerLookup()]);
+  const [participants, lookup] = await Promise.all([
+    listParticipantsForExport(),
+    getWinnerLookup(),
+  ]);
   const rows = participants.map((participant) => {
     // Un giro se resuelve por `drawId`; una ronda antigua, por el celular de 9 dígitos (solo Perú).
     const legacyPhone = peruNational(participant.phone);

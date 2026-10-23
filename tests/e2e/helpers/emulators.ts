@@ -2,6 +2,8 @@
  * Utilidades E2E que hablan con los emuladores de Firebase por su API REST (sin SDK de Firebase).
  * Se autentican con el token especial `owner`, que el emulador acepta para saltarse las reglas.
  */
+import type { Interest } from "@/types";
+
 const PROJECT_ID = "demo-sorteo";
 const FIRESTORE_URL = "http://127.0.0.1:8080";
 const AUTH_URL = "http://127.0.0.1:9099";
@@ -171,6 +173,40 @@ function letters(index: number): string {
   return result;
 }
 
+/** Cantidad de participantes guardados. */
+export async function countParticipants(): Promise<number> {
+  const response = await fetch(`${DOCUMENTS_URL}/participants`, { headers: OWNER_HEADERS });
+  await assertOk(response, "Listar participantes");
+  const json = (await response.json()) as { documents?: unknown[] };
+  return json.documents?.length ?? 0;
+}
+
+/**
+ * Campos de texto de un participante (`null` si no existe). Solo devuelve los valores `stringValue`;
+ * sirve para comprobar las respuestas guardadas por el formulario.
+ */
+export async function readParticipantStrings(
+  phone: string,
+): Promise<Record<string, string> | null> {
+  const response = await fetch(`${DOCUMENTS_URL}/participants/${encodeURIComponent(phone)}`, {
+    headers: OWNER_HEADERS,
+  });
+  if (response.status === 404) {
+    return null;
+  }
+  await assertOk(response, `Leer participants/${phone}`);
+  const json = (await response.json()) as {
+    fields?: Record<string, { stringValue?: string }>;
+  };
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(json.fields ?? {})) {
+    if (typeof value.stringValue === "string") {
+      result[key] = value.stringValue;
+    }
+  }
+  return result;
+}
+
 export interface SeedParticipantInput {
   fullName: string;
   /** Celular E.164 (`+51XXXXXXXXX`); también es el ID del documento. */
@@ -179,19 +215,43 @@ export interface SeedParticipantInput {
   createdAt: Date;
   /** ID del sorteo ganado; `null` (por defecto) si aún no ganó. */
   drawId?: string | null;
-  /** Interés en el CRM con Agente IA (por defecto `false`). */
-  crmInterest?: boolean;
+  /**
+   * Interés en el CRM con Agente IA. Un texto (`yes` | `maybe` | `no`) es el formato actual; un
+   * booleano simula un documento anterior a la feature 005 (la casilla de la 004); si falta, el campo
+   * no se escribe (documento anterior a la 004).
+   */
+  crmInterest?: boolean | Interest;
+  /** Interés en GPS / cámara; si falta, el campo no se escribe (documento anterior). */
+  gpsInterest?: Interest;
+  /** Área de capacitación; si falta, el campo no se escribe (documento anterior). */
+  trainingArea?: string;
+  /** Invitado sugerido; si falta, el campo no se escribe (documento anterior). */
+  guestSuggestion?: string;
 }
 
 /** Siembra un participante con datos concretos (p. ej. textos con comas o fórmulas). */
 export async function seedParticipant(input: SeedParticipantInput): Promise<void> {
   const timestamp = input.createdAt.toISOString();
-  await writeDocument(`participants/${encodeURIComponent(input.phone)}`, {
+  const fields: Record<string, FirestoreValue> = {
     fullName: { stringValue: input.fullName },
     phone: { stringValue: input.phone },
     company: { stringValue: input.company },
     createdAt: { timestampValue: timestamp },
-    crmInterest: { booleanValue: input.crmInterest ?? false },
     drawId: input.drawId ? { stringValue: input.drawId } : { nullValue: null },
-  });
+  };
+  if (typeof input.crmInterest === "boolean") {
+    fields.crmInterest = { booleanValue: input.crmInterest };
+  } else if (input.crmInterest !== undefined) {
+    fields.crmInterest = { stringValue: input.crmInterest };
+  }
+  if (input.gpsInterest !== undefined) {
+    fields.gpsInterest = { stringValue: input.gpsInterest };
+  }
+  if (input.trainingArea !== undefined) {
+    fields.trainingArea = { stringValue: input.trainingArea };
+  }
+  if (input.guestSuggestion !== undefined) {
+    fields.guestSuggestion = { stringValue: input.guestSuggestion };
+  }
+  await writeDocument(`participants/${encodeURIComponent(input.phone)}`, fields);
 }

@@ -62,17 +62,24 @@ que mantiene la integridad del sorteo, y el riesgo restante queda aceptado de fo
 ### IV. Minimización y Uso de Datos Personales
 
 - DEBE recolectarse solo lo estrictamente necesario: nombres completos, celular (con su país),
-  empresa u ocupación y la respuesta opcional (Sí/No) a «¿Deseas adquirir el CRM con Agente IA?».
-  Cualquier campo adicional exige enmendar esta constitución o justificarlo en el plan.
+  empresa u ocupación y las cuatro respuestas del segundo paso del registro: el área en la que le
+  gustaría capacitarse y el invitado que le gustaría ver en Creando Valor (ambas de texto libre, de
+  2 a 100 caracteres), y su interés (Sí / Tal vez / No) en el CRM con Agente IA de Cautiva y en un
+  GPS satelital o cámara vehicular de Satelcom. Cualquier campo adicional exige enmendar esta
+  constitución o justificarlo en el plan.
 - El sistema NO incluye flujo de consentimiento ni política de privacidad (casillero, texto de
   finalidad, enlace o evidencia de aceptación). El cumplimiento de la Ley N.º 29733 (Perú) y su
   reglamento corresponde a la empresa organizadora, fuera del sistema.
 - Los datos NO DEBEN usarse para una finalidad distinta a la participación en el sorteo y el
-  contacto con los ganadores; la única excepción es que la organización PUEDE contactar con fines
-  comerciales a quienes marcaron el interés en el CRM con Agente IA. Esa respuesta NO DEBE influir en
-  el sorteo ni exponerse en el cliente público, en la ventana del ganador ni en logs. Los datos
-  mostrados públicamente (p. ej. el contador de registrados) DEBEN limitarse a agregados que no
-  identifiquen a ninguna persona.
+  contacto con los ganadores; las únicas excepciones son que la organización PUEDE (a) contactar con
+  fines comerciales a quienes respondieron «Sí» o «Tal vez» sobre el CRM con Agente IA (Cautiva) o
+  sobre el GPS o cámara vehicular (Satelcom), con la información o cotización que pidieron, y (b)
+  usar el área de capacitación y el invitado sugeridos para programar el evento. Ninguna respuesta
+  DEBE influir en el sorteo ni exponerse en el cliente público, en la ventana del ganador, en el
+  historial de ganadores ni en logs. Los textos libres DEBEN tratarse siempre como texto plano (sin
+  interpretarse como HTML ni como fórmulas de hoja de cálculo al exportar). Los datos mostrados
+  públicamente (p. ej. el contador de registrados) DEBEN limitarse a agregados que no identifiquen a
+  ninguna persona.
 - El administrador DEBE poder borrar los datos personales de los participantes al terminar la
   campaña, conservando del sorteo solo lo mínimo para dejar constancia del resultado.
 
@@ -160,4 +167,4 @@ lentas, y la base de código pequeña para mantenerla segura y simple.
 - El cumplimiento DEBE revisarse en cada plan (Constitution Check) y en cada revisión de
   código; los incumplimientos sin justificación bloquean la integración.
 
-**Version**: 2.1.0 | **Ratified**: 2026-10-21 | **Last Amended**: 2026-10-23
+**Version**: 2.2.0 | **Ratified**: 2026-10-21 | **Last Amended**: 2026-10-23

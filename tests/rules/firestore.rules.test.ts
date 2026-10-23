@@ -44,7 +44,10 @@ beforeEach(async () => {
       fullName: "Maria Perez",
       phone: "+56912345678",
       company: "Empresa",
-      crmInterest: true,
+      trainingArea: "Ventas",
+      guestSuggestion: "Un experto en marketing",
+      crmInterest: "maybe",
+      gpsInterest: "no",
       drawId: null,
     });
     await db.doc("draws/sorteo-1").set({ requestedCount: 1, winners: [], purgedAt: null });

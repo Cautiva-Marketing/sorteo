@@ -19,6 +19,8 @@ import { discardSpin, spin } from "@/services/spins.service";
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 const BOM = String.fromCharCode(0xfeff);
+const HEADER =
+  "Nombres,Celular (con código de país),Empresa u ocupación,Área de capacitación,Invitado sugerido,CRM con Agente IA,GPS / cámara,Fecha de registro,Premio,N.º de ganador,Estado";
 
 function exportRequest(headers: Record<string, string> = {}): Request {
   return new Request("http://localhost:3000/api/admin/participants/export", {
@@ -73,13 +75,11 @@ describe("GET /api/admin/participants/export", () => {
       .decode(bytes)
       .replace(BOM, "")
       .split("\r\n");
-    expect(lines[0]).toBe(
-      "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
-    );
+    expect(lines[0]).toBe(HEADER);
     expect(lines).toHaveLength(1 + 7);
-    // Del más reciente al más antiguo, con el celular con prefijo y el CRM en «No».
+    // Del más reciente al más antiguo, con el celular con prefijo, el CRM en «No» y sin respuestas nuevas.
     expect(lines[1]).toMatch(
-      /^Participante G,51 900000006,Empresa G,No,\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},,,$/,
+      /^Participante G,51 900000006,Empresa G,,,No,,\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},,,$/,
     );
   });
 
@@ -89,6 +89,10 @@ describe("GET /api/admin/participants/export", () => {
       fullName: "José Núñez Güemes",
       phone: "+51987654321",
       company: "=1+1",
+      trainingArea: "=HYPERLINK(1)",
+      guestSuggestion: "@cmd",
+      crmInterest: "no",
+      gpsInterest: "no",
       createdAt,
       drawId: null,
     });
@@ -99,10 +103,14 @@ describe("GET /api/admin/participants/export", () => {
         fullName: "Ana Quispe",
         phone: "+51912345678",
         company: "Ventas, Marketing",
-        crmInterest: true,
+        trainingArea: "Liderazgo, ventas",
+        guestSuggestion: "Una emprendedora",
+        crmInterest: "maybe",
+        gpsInterest: "yes",
         createdAt: new Date("2026-10-20T20:15:30.000Z"),
         drawId: null,
       });
+    // Documento anterior a la feature 005: casilla booleana y sin las demás respuestas.
     await getDb()
       .collection("participants")
       .doc("+56912345678")
@@ -110,7 +118,7 @@ describe("GET /api/admin/participants/export", () => {
         fullName: "Sofía Rojas",
         phone: "+56912345678",
         company: "Tienda Sur",
-        crmInterest: false,
+        crmInterest: true,
         createdAt: new Date("2026-10-19T20:15:30.000Z"),
         drawId: null,
       });
@@ -122,12 +130,36 @@ describe("GET /api/admin/participants/export", () => {
       new Uint8Array(await response.arrayBuffer()),
     );
     expect(text.split("\r\n")).toEqual([
-      BOM +
-        "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
-      "José Núñez Güemes,51 987654321,'=1+1,No,2026-10-21 15:15:30,,,",
-      'Ana Quispe,51 912345678,"Ventas, Marketing",Sí,2026-10-20 15:15:30,,,',
-      "Sofía Rojas,56 912345678,Tienda Sur,No,2026-10-19 15:15:30,,,",
+      BOM + HEADER,
+      "José Núñez Güemes,51 987654321,'=1+1,'=HYPERLINK(1),'@cmd,No,No,2026-10-21 15:15:30,,,",
+      'Ana Quispe,51 912345678,"Ventas, Marketing","Liderazgo, ventas",Una emprendedora,Tal vez,Sí,2026-10-20 15:15:30,,,',
+      "Sofía Rojas,56 912345678,Tienda Sur,,,Sí,,2026-10-19 15:15:30,,,",
     ]);
+  });
+
+  it("un texto libre con etiquetas HTML se exporta como texto, sin transformarlo", async () => {
+    await getDb()
+      .collection("participants")
+      .doc("+51987654321")
+      .set({
+        fullName: "Ana Pérez",
+        phone: "+51987654321",
+        company: "Cautiva",
+        trainingArea: "<script>alert(1)</script>",
+        guestSuggestion: "Un experto",
+        crmInterest: "no",
+        gpsInterest: "no",
+        createdAt: new Date("2026-10-21T20:15:30.000Z"),
+        drawId: null,
+      });
+    const cookie = await createSessionCookieValue("admin-export@example.com", { admin: true });
+
+    const response = await GET(exportRequest({ cookie: sessionCookieHeader(cookie) }));
+
+    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(
+      new Uint8Array(await response.arrayBuffer()),
+    );
+    expect(text).toContain(",<script>alert(1)</script>,Un experto,");
   });
 
   it("sin participantes responde solo el encabezado", async () => {
@@ -139,10 +171,7 @@ describe("GET /api/admin/participants/export", () => {
     const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(
       new Uint8Array(await response.arrayBuffer()),
     );
-    expect(text).toBe(
-      BOM +
-        "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
-    );
+    expect(text).toBe(BOM + HEADER);
   });
 });
 
@@ -171,14 +200,12 @@ describe("columnas de ganadores (feature 003, FR-084)", () => {
       new Uint8Array(await response.arrayBuffer()),
     );
     const [header, ...rows] = text.replace(BOM, "").split("\r\n");
-    expect(header).toBe(
-      "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
-    );
+    expect(header).toBe(HEADER);
     expect(rows).toHaveLength(6);
     const byPhone = new Map(
       rows.map((line) => {
         const cells = line.split(",");
-        return [cells[1] as string, cells.slice(5).join(",")] as const;
+        return [cells[1] as string, cells.slice(8).join(",")] as const;
       }),
     );
     expect(byPhone.get("51 900000000")).toBe("Sin premio,1,Ganador");

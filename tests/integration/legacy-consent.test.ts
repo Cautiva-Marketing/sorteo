@@ -57,11 +57,13 @@ describe("participantes anteriores con el mapa `consent`", () => {
       "crmInterest",
       "drawId",
       "fullName",
+      "gpsInterest",
       "phone",
     ]);
     expect(rows[0]?.phone).toBe("+51987654321");
-    // Documento anterior sin el campo: no está interesado.
-    expect(rows[0]?.crmInterest).toBe(false);
+    // Documento anterior sin los campos: CRM "no" y GPS / cámara sin respuesta.
+    expect(rows[0]?.crmInterest).toBe("no");
+    expect(rows[0]?.gpsInterest).toBeNull();
   });
 
   it("la exportación CSV incluye su fila y no tiene columna de consentimiento", async () => {
@@ -80,8 +82,8 @@ describe("participantes anteriores con el mapa `consent`", () => {
     );
     expect(text.split("\r\n")).toEqual([
       BOM +
-        "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
-      "José Núñez Güemes,51 987654321,Cautiva Marketing,No,2026-10-21 15:15:30,,,",
+        "Nombres,Celular (con código de país),Empresa u ocupación,Área de capacitación,Invitado sugerido,CRM con Agente IA,GPS / cámara,Fecha de registro,Premio,N.º de ganador,Estado",
+      "José Núñez Güemes,51 987654321,Cautiva Marketing,,,No,,2026-10-21 15:15:30,,,",
     ]);
   });
 

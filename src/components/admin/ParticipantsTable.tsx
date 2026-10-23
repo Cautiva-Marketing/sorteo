@@ -4,10 +4,17 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Button, buttonClassName } from "@/components/ui/Button";
-import { CheckboxField } from "@/components/ui/CheckboxField";
 import { DownloadIcon } from "@/components/ui/icons";
+import { SelectField } from "@/components/ui/SelectField";
 import { TextField } from "@/components/ui/TextField";
 import { formatLimaDateTime } from "@/lib/format";
+import {
+  CRM_FILTER_OPTIONS,
+  GPS_FILTER_OPTIONS,
+  interestLabel,
+  matchesInterestFilter,
+  type InterestFilter,
+} from "@/lib/interest";
 import { filterParticipants } from "@/lib/search";
 import { formatPhoneDisplay } from "@/lib/validation/phone";
 import type { ParticipantListItem } from "@/types";
@@ -25,19 +32,29 @@ const headerCell = "px-4 py-3 text-left text-xs font-semibold tracking-wide text
 const bodyCell = "px-4 py-3 text-sm text-ink-900";
 
 /**
- * Tabla de participantes: recibe todas las filas del servidor y filtra (sin tildes ni
- * mayúsculas) y pagina en el navegador (research D-007).
+ * Tabla de participantes: recibe todas las filas del servidor y filtra (por texto sin tildes ni
+ * mayúsculas y por la respuesta de CRM y de GPS / cámara) y pagina en el navegador (research D-007).
+ * El área de capacitación y el invitado sugerido no se muestran aquí: solo salen en el CSV.
  */
 export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [query, setQuery] = useState("");
-  const [onlyInterested, setOnlyInterested] = useState(false);
+  const [crmFilter, setCrmFilter] = useState<InterestFilter>("all");
+  const [gpsFilter, setGpsFilter] = useState<InterestFilter>("all");
   const [requestedPage, setRequestedPage] = useState(1);
 
   const matches = useMemo(
-    () => filterParticipants(onlyInterested ? rows.filter((row) => row.crmInterest) : rows, query),
-    [rows, query, onlyInterested],
+    () =>
+      filterParticipants(
+        rows.filter(
+          (row) =>
+            matchesInterestFilter(row.crmInterest, crmFilter) &&
+            matchesInterestFilter(row.gpsInterest, gpsFilter),
+        ),
+        query,
+      ),
+    [rows, query, crmFilter, gpsFilter],
   );
   const pageCount = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
   const page = Math.min(requestedPage, pageCount);
@@ -94,14 +111,26 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
             setRequestedPage(1);
           }}
         />
-        <CheckboxField
-          label="Solo interesados en el CRM"
-          checked={onlyInterested}
-          onChange={(event) => {
-            setOnlyInterested(event.target.checked);
-            setRequestedPage(1);
-          }}
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField
+            label="CRM con Agente IA"
+            options={CRM_FILTER_OPTIONS}
+            value={crmFilter}
+            onChange={(event) => {
+              setCrmFilter(event.target.value as InterestFilter);
+              setRequestedPage(1);
+            }}
+          />
+          <SelectField
+            label="GPS / cámara"
+            options={GPS_FILTER_OPTIONS}
+            value={gpsFilter}
+            onChange={(event) => {
+              setGpsFilter(event.target.value as InterestFilter);
+              setRequestedPage(1);
+            }}
+          />
+        </div>
         <p role="status" aria-live="polite" className="text-base text-ink-600">
           {`Coincidencias: ${matches.length}`}
         </p>
@@ -122,7 +151,7 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
             tabIndex={0}
             className="overflow-x-auto rounded-2xl border border-line bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700"
           >
-            <table className="w-full min-w-xl border-collapse">
+            <table className="w-full min-w-3xl border-collapse">
               <caption className="sr-only">
                 Participantes registrados, del más reciente al más antiguo
               </caption>
@@ -141,6 +170,9 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
                     CRM
                   </th>
                   <th scope="col" className={headerCell}>
+                    GPS / cámara
+                  </th>
+                  <th scope="col" className={headerCell}>
                     Fecha de registro
                   </th>
                 </tr>
@@ -155,7 +187,8 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
                       {formatPhoneDisplay(row.phone)}
                     </td>
                     <td className={bodyCell}>{row.company}</td>
-                    <td className={bodyCell}>{row.crmInterest ? "Sí" : "No"}</td>
+                    <td className={bodyCell}>{interestLabel(row.crmInterest)}</td>
+                    <td className={bodyCell}>{interestLabel(row.gpsInterest)}</td>
                     <td className={`${bodyCell} whitespace-nowrap`}>
                       {formatLimaDateTime(row.createdAt)}
                     </td>
