@@ -9,6 +9,7 @@ import {
   sessionCookieHeader,
   snapshotCollections,
 } from "./helpers";
+import { getDb } from "@/services/firebase/admin";
 import { POST as discardPost } from "@/app/api/admin/spins/[id]/discard/route";
 import { POST as practicePost } from "@/app/api/admin/spins/practice/route";
 import { POST as spinPost } from "@/app/api/admin/spins/route";
@@ -60,8 +61,8 @@ describe("POST /api/admin/spins", () => {
     const text = await response.clone().text();
     expect(text).not.toMatch(/9\d{8}/);
     expect(text).not.toMatch(/phone|company|Empresa/);
-    // El interés en el CRM nunca viaja al giro (feature 004, FR-105).
-    expect(text).not.toMatch(/crmInterest/i);
+    // Ninguna respuesta del registro viaja al giro (features 004 y 005, FR-132).
+    expect(text).not.toMatch(/crmInterest|gpsInterest|trainingArea|guestSuggestion/i);
     const body = await json(response);
     expect(Object.keys(body).sort()).toEqual([
       "createdAt",
@@ -75,6 +76,44 @@ describe("POST /api/admin/spins", () => {
     expect(body.status).toBe("active");
     expect(body.prize).toEqual({ id: prizeId, name: "Alexa" });
     expect(Object.keys(body.winner as object).sort()).toEqual(["fullName", "ref"]);
+  });
+
+  it("las respuestas del registro no influyen: todos pueden ganar y ninguna aparece en la respuesta", async () => {
+    const answers = [
+      ["yes", "yes"],
+      ["maybe", "no"],
+      ["no", "maybe"],
+    ] as const;
+    for (const [index, [crmInterest, gpsInterest]] of answers.entries()) {
+      const phone = `+5190000000${index}`;
+      await getDb()
+        .collection("participants")
+        .doc(phone)
+        .set({
+          fullName: `Participante ${"ABC"[index]}`,
+          phone,
+          company: `Empresa ${"ABC"[index]}`,
+          trainingArea: "Área reservada",
+          guestSuggestion: "Invitado reservado",
+          crmInterest,
+          gpsInterest,
+          createdAt: new Date(`2026-10-2${index}T10:00:00.000Z`),
+          drawId: null,
+        });
+    }
+    const prizeId = await seedPrize({ name: "Alexa", quantity: 3 });
+
+    const winners = new Set<string>();
+    for (let round = 0; round < 3; round += 1) {
+      const response = await post(spinPost, "/api/admin/spins", { prizeId });
+      expect(response.status).toBe(201);
+      const text = await response.clone().text();
+      expect(text).not.toMatch(/Área reservada|Invitado reservado|crmInterest|gpsInterest/i);
+      winners.add(((await json(response)).winner as { fullName: string }).fullName);
+    }
+
+    // Los tres participantes, con respuestas distintas, ganaron un premio cada uno.
+    expect(winners.size).toBe(3);
   });
 
   it("400 con un cuerpo inválido", async () => {

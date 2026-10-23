@@ -103,7 +103,7 @@ test("tras girar, borrar exige escribir BORRAR y deja el listado vacío y el his
   await expect(page.getByText("Aún no hay participantes")).toBeVisible();
   const csv = await page.request.get("/api/admin/participants/export");
   expect((await csv.text()).replace(String.fromCharCode(0xfeff), "")).toBe(
-    "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
+    "Nombres,Celular (con código de país),Empresa u ocupación,Área de capacitación,Invitado sugerido,CRM con Agente IA,GPS / cámara,Fecha de registro,Premio,N.º de ganador,Estado",
   );
 
   // El historial conserva número, premio, nombre, fecha y estado, sin celular ni empresa (FR-086).

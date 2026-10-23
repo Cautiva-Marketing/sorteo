@@ -1,7 +1,8 @@
 import "server-only";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, type QueryDocumentSnapshot } from "firebase-admin/firestore";
+import { normalizeStoredInterest, normalizeStoredOptionalInterest } from "@/lib/interest";
 import type { RegistrationInput } from "@/lib/validation/schemas";
-import type { ParticipantListItem } from "@/types";
+import type { ParticipantExportRow, ParticipantListItem } from "@/types";
 import { getDb } from "@/services/firebase/admin";
 
 /** Las inscripciones están cerradas (`settings/registration.open === false`). */
@@ -56,7 +57,10 @@ export async function registerParticipant(input: RegistrationInput): Promise<voi
         fullName: input.fullName,
         phone: input.phone,
         company: input.company,
+        trainingArea: input.trainingArea,
+        guestSuggestion: input.guestSuggestion,
         crmInterest: input.crmInterest,
+        gpsInterest: input.gpsInterest,
         createdAt: FieldValue.serverTimestamp(),
         drawId: null,
       });
@@ -70,31 +74,81 @@ export async function registerParticipant(input: RegistrationInput): Promise<voi
   }
 }
 
+/**
+ * Comprueba, sin escribir nada, que un celular pueda registrarse: inscripciones abiertas y celular
+ * libre. Lo usa el paso 1 del formulario para avisar antes de pedir las respuestas del paso 2.
+ *
+ * Es informativa: no reserva el celular. Otra persona puede registrarlo antes del envío final; la
+ * garantía de unicidad sigue siendo el `create` atómico de `registerParticipant`. Como la transacción,
+ * comprueba primero el cierre y después el duplicado.
+ */
+export async function checkRegistrationAvailable(phone: string): Promise<void> {
+  const db = getDb();
+  const [settings, participant] = await db.getAll(
+    db.collection(SETTINGS_COLLECTION).doc(REGISTRATION_DOC),
+    db.collection(PARTICIPANTS_COLLECTION).doc(phone),
+  );
+  // Si el documento de configuración no existe, las inscripciones se consideran abiertas.
+  if (settings.exists && settings.data()?.open === false) {
+    throw new RegistrationClosedError();
+  }
+  if (participant.exists) {
+    throw new AlreadyRegisteredError();
+  }
+}
+
 /** Convierte una marca de tiempo de Firestore en `Date` (época Unix si faltara el campo). */
 function toDate(value: unknown): Date {
   return value instanceof Timestamp ? value.toDate() : new Date(0);
 }
 
-/**
- * Lista todos los participantes, del más reciente al más antiguo (FR-016). Devuelve solo los
- * campos que muestra el panel; el celular se entrega en E.164 y cualquier otro campo que
- * traiga un documento anterior (p. ej. `consent`) no sale de esta capa.
- */
-export async function listParticipants(): Promise<ParticipantListItem[]> {
+/** Mapea un documento de `participants` a la fila del panel (sin los textos libres). */
+function toListItem(doc: QueryDocumentSnapshot): ParticipantListItem {
+  const data = doc.data();
+  const drawId: unknown = data.drawId;
+  return {
+    fullName: String(data.fullName ?? ""),
+    phone: String(data.phone ?? doc.id),
+    company: String(data.company ?? ""),
+    // Los documentos anteriores no traen estos campos o guardan el CRM como booleano (feature 004):
+    // se normalizan aquí, sin migrar los datos.
+    crmInterest: normalizeStoredInterest(data.crmInterest),
+    gpsInterest: normalizeStoredOptionalInterest(data.gpsInterest),
+    createdAt: toDate(data.createdAt),
+    drawId: typeof drawId === "string" ? drawId : null,
+  };
+}
+
+async function readParticipantDocs(): Promise<QueryDocumentSnapshot[]> {
   const snapshot = await getDb()
     .collection(PARTICIPANTS_COLLECTION)
     .orderBy("createdAt", "desc")
     .get();
-  return snapshot.docs.map((doc) => {
+  return snapshot.docs;
+}
+
+/**
+ * Lista todos los participantes, del más reciente al más antiguo (FR-016). Devuelve solo los
+ * campos que muestra el panel; el celular se entrega en E.164 y cualquier otro campo que
+ * traiga un documento anterior (p. ej. `consent`) no sale de esta capa. Los textos libres del
+ * paso 2 tampoco salen: la tabla no los muestra y solo los necesita el CSV
+ * (`listParticipantsForExport`).
+ */
+export async function listParticipants(): Promise<ParticipantListItem[]> {
+  return (await readParticipantDocs()).map(toListItem);
+}
+
+/**
+ * Igual que `listParticipants` más el área de capacitación y el invitado sugerido. Solo la usa la
+ * exportación a CSV; vacíos (`""`) en los participantes anteriores a la feature 005.
+ */
+export async function listParticipantsForExport(): Promise<ParticipantExportRow[]> {
+  return (await readParticipantDocs()).map((doc) => {
     const data = doc.data();
-    const drawId: unknown = data.drawId;
     return {
-      fullName: String(data.fullName ?? ""),
-      phone: String(data.phone ?? doc.id),
-      company: String(data.company ?? ""),
-      crmInterest: data.crmInterest === true,
-      createdAt: toDate(data.createdAt),
-      drawId: typeof drawId === "string" ? drawId : null,
+      ...toListItem(doc),
+      trainingArea: String(data.trainingArea ?? ""),
+      guestSuggestion: String(data.guestSuggestion ?? ""),
     };
   });
 }

@@ -1,13 +1,21 @@
 import { formatLimaDateTime } from "@/lib/format";
+import { interestCsvLabel } from "@/lib/interest";
 import { formatPhoneCsv } from "@/lib/validation/phone";
+import type { Interest } from "@/types";
 
 /** Fila exportable: el celular viene en E.164 (o el valor antiguo de 9 dígitos). */
 export interface CsvRow {
   fullName: string;
   phone: string;
   company: string;
+  /** «¿En qué área te gustaría capacitarte?»; `""` en participantes anteriores a la feature 005. */
+  trainingArea: string;
+  /** «¿Qué invitado te gustaría que trajéramos?»; `""` en participantes anteriores. */
+  guestSuggestion: string;
   /** Interés en el CRM con Agente IA. */
-  crmInterest: boolean;
+  crmInterest: Interest;
+  /** Interés en un GPS o cámara de Satelcom; `null` = sin respuesta (participantes anteriores). */
+  gpsInterest: Interest | null;
   createdAt: Date;
   /** Premio del giro; `null` = «Sin premio» (ronda anterior a la feature 003). Solo importa si ganó. */
   prizeName?: string | null;
@@ -23,7 +31,10 @@ const HEADER = [
   "Nombres",
   "Celular (con código de país)",
   "Empresa u ocupación",
-  "Interesado en CRM",
+  "Área de capacitación",
+  "Invitado sugerido",
+  "CRM con Agente IA",
+  "GPS / cámara",
   "Fecha de registro",
   "Premio",
   "N.º de ganador",
@@ -64,9 +75,10 @@ function winnerCells(row: CsvRow): string[] {
 
 /**
  * Serializa la lista de participantes a CSV (research D-011): BOM UTF-8, coma como separador,
- * columnas fijas y fecha de registro en hora de Lima, más premio, número y estado de quienes
- * ganaron. Los textos libres se neutralizan; el celular («51 987654321», validado) no lo necesita.
- * Sin filas devuelve solo el encabezado.
+ * columnas fijas (datos, las cuatro respuestas del registro y fecha de registro en hora de Lima), más
+ * premio, número y estado de quienes ganaron. Los textos libres (nombre, empresa, capacitación,
+ * invitado y premio) se neutralizan contra fórmulas; el celular («51 987654321», validado) no lo
+ * necesita. Sin filas devuelve solo el encabezado.
  */
 export function toCsv(rows: ReadonlyArray<CsvRow>): string {
   const lines = [HEADER.join(",")];
@@ -76,7 +88,10 @@ export function toCsv(rows: ReadonlyArray<CsvRow>): string {
         escapeCell(neutralizeFormula(row.fullName)),
         escapeCell(formatPhoneCsv(row.phone)),
         escapeCell(neutralizeFormula(row.company)),
-        row.crmInterest ? "Sí" : "No",
+        escapeCell(neutralizeFormula(row.trainingArea)),
+        escapeCell(neutralizeFormula(row.guestSuggestion)),
+        interestCsvLabel(row.crmInterest),
+        interestCsvLabel(row.gpsInterest),
         escapeCell(formatLimaDateTime(row.createdAt)),
         ...winnerCells(row),
       ].join(","),

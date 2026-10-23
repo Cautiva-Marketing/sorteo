@@ -1,5 +1,8 @@
 /** Tipos de dominio compartidos (sin dependencias de Firebase ni de React). */
 
+/** Interés comercial de un participante: Sí, Tal vez o No. */
+export type Interest = "yes" | "maybe" | "no";
+
 export interface Participant {
   fullName: string;
   /**
@@ -9,8 +12,17 @@ export interface Participant {
   phone: string;
   company: string;
   createdAt: Date;
-  /** `true` si marcó el interés en el CRM con Agente IA; ausente en documentos anteriores = `false`. */
-  crmInterest: boolean;
+  /** «¿En qué área te gustaría capacitarte?»; `""` en documentos anteriores a la feature 005. */
+  trainingArea: string;
+  /** «¿Qué invitado te gustaría que trajéramos?»; `""` en documentos anteriores a la feature 005. */
+  guestSuggestion: string;
+  /**
+   * Interés en el CRM con Agente IA. Los documentos anteriores se normalizan al leer: la casilla de la
+   * feature 004 marcada = `yes`; sin marcar o ausente = `no`.
+   */
+  crmInterest: Interest;
+  /** Interés en un GPS o cámara de Satelcom; `null` («Sin respuesta») en documentos anteriores. */
+  gpsInterest: Interest | null;
   /** `null` = elegible; ID del giro (`spins`) o de la ronda antigua (`draws`) en que ganó o fue descartado. */
   drawId: string | null;
 }
@@ -63,9 +75,20 @@ export interface ParticipantListItem {
   phone: string;
   company: string;
   createdAt: Date;
-  /** `true` si marcó el interés en el CRM con Agente IA; ausente en documentos anteriores = `false`. */
-  crmInterest: boolean;
+  /** Interés en el CRM con Agente IA (Sí / Tal vez / No); los documentos anteriores salen `yes` o `no`. */
+  crmInterest: Interest;
+  /** Interés en un GPS o cámara de Satelcom; `null` = «Sin respuesta» (documentos anteriores). */
+  gpsInterest: Interest | null;
   drawId: string | null;
+}
+
+/**
+ * Fila del CSV: el listado del panel más los dos textos libres. Solo la lee la exportación; no viaja al
+ * navegador del administrador porque la tabla no los muestra (minimización).
+ */
+export interface ParticipantExportRow extends ParticipantListItem {
+  trainingArea: string;
+  guestSuggestion: string;
 }
 
 /** Identidad del administrador autenticado. */

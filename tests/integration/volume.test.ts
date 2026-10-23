@@ -8,7 +8,7 @@ import {
 } from "./helpers";
 import { toCsv } from "@/lib/csv";
 import { filterParticipants } from "@/lib/search";
-import { listParticipants } from "@/services/participants.service";
+import { listParticipants, listParticipantsForExport } from "@/services/participants.service";
 import { listWheelParticipants, spin } from "@/services/spins.service";
 import type { AdminIdentity } from "@/types";
 
@@ -57,7 +57,7 @@ describe(`volumen de ${TOTAL} participantes (SC-010)`, () => {
   });
 
   it("toCsv genera 5 001 líneas (encabezado + 5 000 filas)", async () => {
-    const rows = await listParticipants();
+    const rows = await listParticipantsForExport();
 
     const start = performance.now();
     const csv = toCsv(rows);

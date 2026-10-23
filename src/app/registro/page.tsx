@@ -28,7 +28,7 @@ export default async function RegistroPage() {
         {open ? (
           <>
             <p className="mb-6 text-center text-base text-ink-600">
-              Completa tus 3 datos para participar en el sorteo.
+              Completa tus datos y responde 4 preguntas para participar en el sorteo.
             </p>
             <div className="rounded-3xl border border-line bg-paper p-6">
               <RegistrationForm />

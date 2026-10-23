@@ -6,6 +6,7 @@ import {
   seedParticipants,
   setRegistrationOpen,
 } from "./helpers/emulators";
+import { clickNext, fillStepOne, openForm, registerViaForm } from "./helpers/registration";
 
 // La primera petición compila las rutas en modo desarrollo: se dejan márgenes amplios.
 test.setTimeout(120_000);
@@ -119,23 +120,18 @@ test("las ventanas del panel oscurecen el fondo sin desenfocarlo (FR-116)", asyn
 });
 
 test("las ventanas del formulario público conservan el desenfoque (FR-117)", async ({ page }) => {
-  await page.goto("/registro");
-  await page.waitForLoadState("networkidle");
-  const submit = async () => {
-    await page.getByLabel("Nombres completos", { exact: true }).fill("María");
-    await page.getByLabel("Celular", { exact: true }).fill("987654321");
-    await page.getByLabel("Empresa u ocupación", { exact: true }).fill("Cautiva");
-    await page.getByRole("button", { name: "Enviar y participar" }).click();
-  };
+  await openForm(page);
+  const stepOne = { fullName: "María", phone: "987654321", company: "Cautiva" };
 
-  await submit();
+  await registerViaForm(page, stepOne);
   const welcome = page.getByRole("dialog", { name: "¡Bienvenido(a)!" });
   await expect(welcome).toBeVisible();
   expect(await backdropFilter(page)).toContain("blur");
 
-  // Repetir el mismo celular abre la ventana «ya registrado».
+  // Repetir el mismo celular abre la ventana «ya registrado» al tocar «Siguiente».
   await page.getByRole("button", { name: "Registrar a otra persona" }).click();
-  await submit();
+  await fillStepOne(page, stepOne);
+  await clickNext(page);
   const already = page.getByRole("dialog", { name: "Ya estás participando en el sorteo" });
   await expect(already).toBeVisible();
   expect(await backdropFilter(page)).toContain("blur");
