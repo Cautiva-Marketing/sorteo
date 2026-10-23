@@ -2,10 +2,15 @@
 
 export interface Participant {
   fullName: string;
-  /** Celular normalizado en formato E.164 (`+51XXXXXXXXX`); coincide con el ID del documento. */
+  /**
+   * Celular normalizado en formato E.164 con el prefijo de cualquiera de los 12 países admitidos
+   * (`+51987654321`, `+56912345678`…); coincide con el ID del documento.
+   */
   phone: string;
   company: string;
   createdAt: Date;
+  /** `true` si marcó el interés en el CRM con Agente IA; ausente en documentos anteriores = `false`. */
+  crmInterest: boolean;
   /** `null` = elegible; ID del giro (`spins`) o de la ronda antigua (`draws`) en que ganó o fue descartado. */
   drawId: string | null;
 }
@@ -34,7 +39,6 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "REGISTRATION_CLOSED"
   | "ALREADY_REGISTERED"
-  | "CONFIRMATION_REQUIRED"
   | "REGISTRATION_OPEN"
   | "DRAW_CONFLICT"
   | "PRIZE_EXHAUSTED"
@@ -52,13 +56,15 @@ export interface ApiError {
   fieldErrors?: FieldErrors;
 }
 
-/** Fila del listado del panel: solo los campos necesarios, con el celular en 9 dígitos. */
+/** Fila del listado del panel: solo los campos necesarios, con el celular en E.164. */
 export interface ParticipantListItem {
   fullName: string;
-  /** Celular nacional de 9 dígitos. */
+  /** Celular en formato E.164 con el prefijo de su país (`+51987654321`). */
   phone: string;
   company: string;
   createdAt: Date;
+  /** `true` si marcó el interés en el CRM con Agente IA; ausente en documentos anteriores = `false`. */
+  crmInterest: boolean;
   drawId: string | null;
 }
 
@@ -133,7 +139,10 @@ export interface WinnerRecord {
   fullName: string;
   /** Se elimina al borrar los datos de la campaña. */
   company?: string;
-  /** Celular nacional de 9 dígitos; se elimina al borrar los datos de la campaña. */
+  /**
+   * Celular en E.164; en giros y rondas anteriores a la feature 004, 9 dígitos (se leen como Perú).
+   * Se elimina al borrar los datos de la campaña.
+   */
   phone?: string;
   createdAt: Date;
   status: "active" | "discarded";

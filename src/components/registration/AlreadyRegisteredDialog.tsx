@@ -46,6 +46,7 @@ export function AlreadyRegisteredDialog({
       onClose={onDone}
       title="Ya estás participando en el sorteo"
       centered
+      blurBackdrop
       icon={<InfoIcon />}
     >
       <div className="flex flex-col gap-4 text-center">

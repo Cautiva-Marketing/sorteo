@@ -39,19 +39,17 @@ const POINTER_NAME_EVERY_MS = 60;
 const MAX_PIXEL_RATIO = 3;
 const TWO_PI = Math.PI * 2;
 
-type TokenName = ColorToken | "paper-soft" | "ink-300" | "gold-300";
+type TokenName = ColorToken;
 
 /** Colores leídos de los design tokens: el canvas no puede usar clases de Tailwind. */
 type WheelTokens = Record<TokenName, string>;
 
 const TOKEN_NAMES: TokenName[] = [
-  "ink-900",
+  "wheel-purple",
+  "wheel-lavender",
+  "wheel-cyan",
   "paper",
-  "gold-100",
-  "gold-600",
-  "gold-300",
-  "paper-soft",
-  "ink-300",
+  "ink-900",
 ];
 
 function readTokens(): WheelTokens {
@@ -65,7 +63,7 @@ function readTokens(): WheelTokens {
 
 /** Anchos de las capas de la rueda a partir del radio de los segmentos `r`. */
 const RIM_OUTER = 14;
-const RIM_GOLD = 10;
+const RIM_FILLET = 10;
 const RIM_INNER = 6;
 
 function fillDisc(ctx: CanvasRenderingContext2D, center: number, radius: number, color: string) {
@@ -91,13 +89,13 @@ function paintWheel(
   const hubRadius = size * 0.135;
   const count = participants.length;
 
-  // Aro: banda exterior oscura, anillo dorado fino y banda oscura interior donde van los pines.
-  fillDisc(ctx, center, radius + RIM_OUTER, tokens["ink-900"]);
-  fillDisc(ctx, center, radius + RIM_GOLD, tokens["gold-600"]);
-  fillDisc(ctx, center, radius + RIM_INNER, tokens["ink-900"]);
+  // Aro: banda exterior morada, filete lavanda y banda morada interior donde van los pines.
+  fillDisc(ctx, center, radius + RIM_OUTER, tokens["wheel-purple"]);
+  fillDisc(ctx, center, radius + RIM_FILLET, tokens["wheel-lavender"]);
+  fillDisc(ctx, center, radius + RIM_INNER, tokens["wheel-purple"]);
 
   if (count === 0) {
-    fillDisc(ctx, center, radius, tokens["paper-soft"]);
+    fillDisc(ctx, center, radius, tokens["paper"]);
     return;
   }
 
@@ -127,7 +125,7 @@ function paintWheel(
   }
 
   if (count > 1 && count <= 100) {
-    ctx.strokeStyle = tokens["ink-300"];
+    ctx.strokeStyle = tokens["paper"];
     ctx.lineWidth = Math.max(1, radius * 0.004);
     for (let index = 0; index < count; index += 1) {
       const angle = -Math.PI / 2 + index * arc;
@@ -164,10 +162,10 @@ function paintWheel(
     }
   }
 
-  // Pines dorados sobre la banda oscura, en los límites de los segmentos.
+  // Pines celestes sobre la banda morada, en los límites de los segmentos.
   const step = pinStep(count);
   const pinRadius = Math.max(1.5, radius * 0.01);
-  ctx.fillStyle = tokens["gold-300"];
+  ctx.fillStyle = tokens["wheel-cyan"];
   for (let index = 0; index < count; index += step) {
     const angle = -Math.PI / 2 + index * arc;
     ctx.beginPath();
@@ -182,14 +180,14 @@ function paintWheel(
   }
 }
 
-/** Capa fija: buje crema con borde dorado y puntero triangular negro en el borde superior. */
+/** Capa fija: buje blanco con aro morado y puntero triangular morado en el borde superior. */
 function paintOverlay(ctx: CanvasRenderingContext2D, size: number, tokens: WheelTokens): void {
   const center = size / 2;
   const radius = size / 2 - (RIM_OUTER + 4);
   const hubRadius = size * 0.135;
 
-  fillDisc(ctx, center, hubRadius + 4, tokens["gold-600"]);
-  fillDisc(ctx, center, hubRadius, tokens["gold-100"]);
+  fillDisc(ctx, center, hubRadius + 4, tokens["wheel-purple"]);
+  fillDisc(ctx, center, hubRadius, tokens["paper"]);
 
   const tipY = center - radius + 12;
   ctx.beginPath();
@@ -197,10 +195,10 @@ function paintOverlay(ctx: CanvasRenderingContext2D, size: number, tokens: Wheel
   ctx.lineTo(center - 15, 0);
   ctx.lineTo(center + 15, 0);
   ctx.closePath();
-  ctx.fillStyle = tokens["ink-900"];
+  ctx.fillStyle = tokens["wheel-purple"];
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = tokens["gold-600"];
+  ctx.strokeStyle = tokens["paper"];
   ctx.stroke();
 }
 

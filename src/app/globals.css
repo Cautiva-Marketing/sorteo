@@ -23,6 +23,10 @@
   --color-gold-300: #e5c271;
   --color-gold-100: #faf3e3;
   --color-indigo-600: #524a99;
+  /* Paleta de la “A” del logo de Creando Valor; uso exclusivo de la ruleta (constitución V). */
+  --color-wheel-purple: #524a99;
+  --color-wheel-lavender: #706baf;
+  --color-wheel-cyan: #23bcef;
   --color-danger-700: #b42318;
   --color-danger-100: #fdeceb;
   --color-success-700: #067647;

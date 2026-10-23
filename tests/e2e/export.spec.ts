@@ -38,6 +38,7 @@ test("con una búsqueda activa, «Exportar CSV» descarga la lista completa y ne
     fullName: "Ana Quispe",
     phone: "+51912345678",
     company: "Ventas, Marketing",
+    crmInterest: true,
     createdAt: new Date("2026-10-20T20:15:30.000Z"),
   });
   await loginAsAdmin(page);
@@ -57,12 +58,12 @@ test("con una búsqueda activa, «Exportar CSV» descarga la lista completa y ne
   expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
   const lines = bytes.toString("utf8").replace(BOM, "").split("\r\n");
   expect(lines[0]).toBe(
-    "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
+    "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
   );
   // Lista completa: 5 participantes aunque la búsqueda deje 1.
   expect(lines).toHaveLength(1 + 5);
-  expect(lines).toContain("José Núñez Güemes,987654321,'=1+1,2026-10-21 15:15:30,,,");
-  expect(lines).toContain('Ana Quispe,912345678,"Ventas, Marketing",2026-10-20 15:15:30,,,');
+  expect(lines).toContain("José Núñez Güemes,51 987654321,'=1+1,No,2026-10-21 15:15:30,,,");
+  expect(lines).toContain('Ana Quispe,51 912345678,"Ventas, Marketing",Sí,2026-10-20 15:15:30,,,');
 });
 
 test("con 0 participantes el botón está deshabilitado y se informa «No hay datos para exportar»", async ({
@@ -95,7 +96,7 @@ test("quien ganó sale en el CSV con su premio, número y estado", async ({ page
   const response = await page.request.get("/api/admin/participants/export");
   const lines = (await response.text()).replace(BOM, "").split("\r\n");
   expect(lines[0]).toBe(
-    "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
+    "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
   );
   expect(lines).toHaveLength(1 + 4);
   expect(lines.filter((line) => line.endsWith(",Alexa,1,Ganador"))).toHaveLength(1);

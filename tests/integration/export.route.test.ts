@@ -11,6 +11,7 @@ import {
 } from "./helpers";
 import { GET } from "@/app/api/admin/participants/export/route";
 import { formatLimaDateTime } from "@/lib/format";
+import { formatPhoneCsv } from "@/lib/validation/phone";
 import { getDb } from "@/services/firebase/admin";
 import { discardSpin, spin } from "@/services/spins.service";
 
@@ -73,12 +74,12 @@ describe("GET /api/admin/participants/export", () => {
       .replace(BOM, "")
       .split("\r\n");
     expect(lines[0]).toBe(
-      "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
+      "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
     );
     expect(lines).toHaveLength(1 + 7);
-    // Del más reciente al más antiguo, con celular en 9 dígitos.
+    // Del más reciente al más antiguo, con el celular con prefijo y el CRM en «No».
     expect(lines[1]).toMatch(
-      /^Participante G,900000006,Empresa G,\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},,,$/,
+      /^Participante G,51 900000006,Empresa G,No,\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},,,$/,
     );
   });
 
@@ -98,7 +99,19 @@ describe("GET /api/admin/participants/export", () => {
         fullName: "Ana Quispe",
         phone: "+51912345678",
         company: "Ventas, Marketing",
+        crmInterest: true,
         createdAt: new Date("2026-10-20T20:15:30.000Z"),
+        drawId: null,
+      });
+    await getDb()
+      .collection("participants")
+      .doc("+56912345678")
+      .set({
+        fullName: "Sofía Rojas",
+        phone: "+56912345678",
+        company: "Tienda Sur",
+        crmInterest: false,
+        createdAt: new Date("2026-10-19T20:15:30.000Z"),
         drawId: null,
       });
     const cookie = await createSessionCookieValue("admin-export@example.com", { admin: true });
@@ -109,9 +122,11 @@ describe("GET /api/admin/participants/export", () => {
       new Uint8Array(await response.arrayBuffer()),
     );
     expect(text.split("\r\n")).toEqual([
-      BOM + "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
-      "José Núñez Güemes,987654321,'=1+1,2026-10-21 15:15:30,,,",
-      'Ana Quispe,912345678,"Ventas, Marketing",2026-10-20 15:15:30,,,',
+      BOM +
+        "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
+      "José Núñez Güemes,51 987654321,'=1+1,No,2026-10-21 15:15:30,,,",
+      'Ana Quispe,51 912345678,"Ventas, Marketing",Sí,2026-10-20 15:15:30,,,',
+      "Sofía Rojas,56 912345678,Tienda Sur,No,2026-10-19 15:15:30,,,",
     ]);
   });
 
@@ -125,7 +140,8 @@ describe("GET /api/admin/participants/export", () => {
       new Uint8Array(await response.arrayBuffer()),
     );
     expect(text).toBe(
-      BOM + "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
+      BOM +
+        "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
     );
   });
 });
@@ -144,8 +160,9 @@ describe("columnas de ganadores (feature 003, FR-084)", () => {
       const snapshot = await getDb().collection("spins").doc(spinId).get();
       return String((snapshot.data()?.winner as { phone: string }).phone);
     };
-    const firstPhone = await winnerPhone(first.id);
-    const secondPhone = await winnerPhone(second.id);
+    // El CSV muestra «prefijo número»; el ganador de la ronda antigua se resuelve por sus 9 dígitos.
+    const firstPhone = formatPhoneCsv(await winnerPhone(first.id));
+    const secondPhone = formatPhoneCsv(await winnerPhone(second.id));
     const cookie = await createSessionCookieValue("admin-export@example.com", { admin: true });
 
     const response = await GET(exportRequest({ cookie: sessionCookieHeader(cookie) }));
@@ -155,20 +172,20 @@ describe("columnas de ganadores (feature 003, FR-084)", () => {
     );
     const [header, ...rows] = text.replace(BOM, "").split("\r\n");
     expect(header).toBe(
-      "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
+      "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
     );
     expect(rows).toHaveLength(6);
     const byPhone = new Map(
       rows.map((line) => {
         const cells = line.split(",");
-        return [cells[1] as string, cells.slice(4).join(",")] as const;
+        return [cells[1] as string, cells.slice(5).join(",")] as const;
       }),
     );
-    expect(byPhone.get("900000000")).toBe("Sin premio,1,Ganador");
+    expect(byPhone.get("51 900000000")).toBe("Sin premio,1,Ganador");
     expect(byPhone.get(firstPhone)).toBe("Alexa,2,Descartado");
     expect(byPhone.get(secondPhone)).toBe("Alexa,3,Ganador");
     const others = [...byPhone.entries()].filter(
-      ([phone]) => !["900000000", firstPhone, secondPhone].includes(phone),
+      ([phone]) => !["51 900000000", firstPhone, secondPhone].includes(phone),
     );
     expect(others).toHaveLength(3);
     for (const [, cells] of others) {

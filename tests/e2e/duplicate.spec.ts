@@ -60,3 +60,24 @@ test("reintentar con otro formato de celular y otro nombre muestra «ya estás p
   await expect(page.getByLabel("Nombres completos", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Celular", { exact: true })).toHaveValue("");
 });
+
+test("el mismo número local en otro país es otro participante, no un duplicado", async ({
+  page,
+}) => {
+  await register(page, {
+    fullName: "José Núñez Güemes",
+    phone: "987654321",
+    company: "Cautiva Marketing",
+  });
+  await expect(page.getByRole("heading", { name: "¡Bienvenido(a)!" })).toBeVisible();
+  await page.getByRole("button", { name: "Registrar a otra persona" }).click();
+
+  await page.getByLabel("País", { exact: true }).selectOption("CL");
+  await page.getByLabel("Nombres completos", { exact: true }).fill("Sofía");
+  await page.getByLabel("Celular", { exact: true }).fill("987654321");
+  await page.getByLabel("Empresa u ocupación", { exact: true }).fill("Tienda Sur");
+  await page.getByRole("button", { name: "Enviar y participar" }).click();
+
+  await expect(page.getByRole("heading", { name: "¡Bienvenido(a)!" })).toBeVisible();
+  expect(await countParticipants()).toBe(2);
+});

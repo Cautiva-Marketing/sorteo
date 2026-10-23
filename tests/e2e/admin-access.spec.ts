@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createAdminUser, resetFirestore, seedParticipants } from "./helpers/emulators";
+import {
+  createAdminUser,
+  resetFirestore,
+  seedParticipant,
+  seedParticipants,
+} from "./helpers/emulators";
 
 // La primera petición compila las rutas en modo desarrollo: se dejan márgenes amplios.
 test.setTimeout(120_000);
@@ -96,9 +101,10 @@ test("con 60 participantes: conteo 60, 50 filas, paginación y búsqueda sin til
   await expect(page.getByText("Coincidencias: 9")).toBeVisible();
   await expect(page.locator("tbody tr")).toHaveCount(9);
 
-  // Búsqueda por celular de 9 dígitos y por empresa.
+  // Búsqueda por celular de 9 dígitos y por empresa; la tabla muestra el prefijo del país.
   await search.fill("900000005");
   await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(page.locator("tbody tr")).toContainText("+51 900 000 005");
   await search.fill("empresa cb");
   await expect(page.locator("tbody tr")).toHaveCount(1);
 
@@ -106,6 +112,49 @@ test("con 60 participantes: conteo 60, 50 filas, paginación y búsqueda sin til
   await expect(page.getByText("No hay resultados")).toBeVisible();
   await expect(page.getByText("Coincidencias: 0")).toBeVisible();
   await expect(page.locator("tbody tr")).toHaveCount(0);
+});
+
+test("la columna CRM muestra Sí/No y «Solo interesados» deja solo a quien marcó, junto con la búsqueda", async ({
+  page,
+}) => {
+  await seedParticipant({
+    fullName: "Ana Interesada",
+    phone: "+51912345678",
+    company: "Cautiva",
+    crmInterest: true,
+    createdAt: new Date("2026-10-21T20:15:30.000Z"),
+  });
+  await seedParticipant({
+    fullName: "Sofía Rojas",
+    phone: "+56912345678",
+    company: "Tienda Sur",
+    crmInterest: true,
+    createdAt: new Date("2026-10-20T20:15:30.000Z"),
+  });
+  await seedParticipant({
+    fullName: "Luis Gómez",
+    phone: "+51987654321",
+    company: "Cautiva",
+    createdAt: new Date("2026-10-19T20:15:30.000Z"),
+  });
+  await loginAsAdmin(page);
+
+  await expect(page.getByRole("columnheader", { name: "CRM" })).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(3);
+  await expect(page.locator("tbody tr", { hasText: "Ana Interesada" })).toContainText("Sí");
+  await expect(page.locator("tbody tr", { hasText: "Luis Gómez" })).toContainText("No");
+  await expect(page.locator("tbody tr", { hasText: "Sofía Rojas" })).toContainText(
+    "+56 9 1234 5678",
+  );
+
+  await page.getByRole("checkbox", { name: "Solo interesados en el CRM" }).check();
+  await expect(page.getByText("Coincidencias: 2")).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(2);
+  await expect(page.getByText("Luis Gómez")).toHaveCount(0);
+
+  await page.getByLabel("Buscar por nombre, celular o empresa").fill("tienda");
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(page.locator("tbody tr")).toContainText("Sofía Rojas");
 });
 
 test("sin participantes se ve el estado vacío con conteo 0", async ({ page }) => {

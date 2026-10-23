@@ -11,7 +11,6 @@ import { participantRef } from "@/lib/draw";
 import { getDb } from "@/services/firebase/admin";
 import { purgeAllParticipantData } from "@/services/participants.service";
 import {
-  ConfirmationRequiredError,
   discardSpin,
   getWinnerLookup,
   listWheelParticipants,
@@ -33,7 +32,7 @@ const ADMIN: AdminIdentity = { uid: "admin-uid-1", email: "admin@example.com" };
 
 beforeEach(async () => {
   await clearFirestore();
-  // Salvo donde se indique, las inscripciones están cerradas: el giro no pide confirmación.
+  // Salvo donde se indique, las inscripciones están cerradas.
   await seedRegistrationStatus(false);
 });
 
@@ -70,7 +69,8 @@ describe("spin", () => {
     expect(saved?.purgedAt).toBeNull();
     expect(saved?.createdAt).toBeDefined();
     const winner = saved?.winner as { fullName: string; company: string; phone: string };
-    expect(winner.phone).toMatch(/^9\d{8}$/);
+    // El snapshot guarda el celular en E.164 (feature 004).
+    expect(winner.phone).toMatch(/^\+519\d{8}$/);
     expect(winner.fullName).toMatch(/^Participante /);
     expect(winner.company).toMatch(/^Empresa /);
     // El giro no guarda el id del participante (que es su celular).
@@ -78,7 +78,7 @@ describe("spin", () => {
 
     const marked = await participantOfSpin(result.id);
     expect(marked).toHaveLength(1);
-    expect(marked[0]?.id).toBe(`+51${winner.phone}`);
+    expect(marked[0]?.id).toBe(winner.phone);
     expect(result.winner.ref).toBe(participantRef(marked[0]?.id ?? ""));
     expect(result.winner.fullName).toBe(winner.fullName);
 
@@ -205,35 +205,13 @@ describe("spin", () => {
     expect((await readDoc(`prizes/${prizeId}`))?.delivered).toBe(2);
   });
 
-  describe("inscripciones (FR-089)", () => {
-    it("abiertas y sin confirmación: ConfirmationRequiredError y nada cambia", async () => {
-      await seedRegistrationStatus(true);
-      await seedParticipants(5);
-      const prizeId = await seedPrize({ quantity: 1 });
-      const before = await snapshotCollections(["participants", "prizes", "spins", "settings"]);
-
-      await expect(spin({ prizeId }, ADMIN)).rejects.toBeInstanceOf(ConfirmationRequiredError);
-
-      expect(await snapshotCollections(["participants", "prizes", "spins", "settings"])).toEqual(
-        before,
-      );
-      expect((await readDoc("settings/registration"))?.open).toBe(true);
-    });
-
-    it("sin el documento de configuración también se exige la confirmación", async () => {
-      await getDb().doc("settings/registration").delete();
-      await seedParticipants(5);
-      const prizeId = await seedPrize({ quantity: 1 });
-
-      await expect(spin({ prizeId }, ADMIN)).rejects.toBeInstanceOf(ConfirmationRequiredError);
-    });
-
-    it("con confirmCloseRegistration gira y cierra las inscripciones", async () => {
+  describe("inscripciones (FR-106, FR-107)", () => {
+    it("abiertas: gira de inmediato y deja las inscripciones cerradas", async () => {
       await seedRegistrationStatus(true);
       await seedParticipants(5);
       const prizeId = await seedPrize({ quantity: 1 });
 
-      const result = await spin({ prizeId, confirmCloseRegistration: true }, ADMIN);
+      const result = await spin({ prizeId }, ADMIN);
 
       expect(result.number).toBe(1);
       const registration = await readDoc("settings/registration");
@@ -241,11 +219,54 @@ describe("spin", () => {
       expect(registration?.updatedBy).toBe(ADMIN.uid);
     });
 
-    it("con las inscripciones cerradas no se exige confirmación", async () => {
+    it("sin el documento de configuración también gira y cierra las inscripciones", async () => {
+      await getDb().doc("settings/registration").delete();
       await seedParticipants(5);
       const prizeId = await seedPrize({ quantity: 1 });
 
       await expect(spin({ prizeId }, ADMIN)).resolves.toMatchObject({ number: 1 });
+      expect((await readDoc("settings/registration"))?.open).toBe(false);
+    });
+
+    it("cerradas: gira y no cambia updatedAt de settings/registration", async () => {
+      await seedParticipants(5);
+      const prizeId = await seedPrize({ quantity: 1 });
+      const before = await readDoc("settings/registration");
+
+      await expect(spin({ prizeId }, ADMIN)).resolves.toMatchObject({ number: 1 });
+
+      const after = await readDoc("settings/registration");
+      expect(after?.open).toBe(false);
+      expect(after?.updatedAt).toEqual(before?.updatedAt);
+    });
+
+    it("si el giro falla (premio agotado o sin elegibles) las inscripciones siguen abiertas", async () => {
+      await seedRegistrationStatus(true);
+      await seedParticipants(5);
+      const exhausted = await seedPrize({ quantity: 1, delivered: 1, spinCount: 1 });
+
+      await expect(spin({ prizeId: exhausted }, ADMIN)).rejects.toBeInstanceOf(PrizeExhaustedError);
+      expect((await readDoc("settings/registration"))?.open).toBe(true);
+
+      await clearFirestore();
+      await seedRegistrationStatus(true);
+      const prizeId = await seedPrize({ quantity: 1 });
+
+      await expect(spin({ prizeId }, ADMIN)).rejects.toBeInstanceOf(NoEligibleError);
+      expect((await readDoc("settings/registration"))?.open).toBe(true);
+    });
+
+    it("el modo de práctica no cierra inscripciones ni escribe en Firestore", async () => {
+      await seedRegistrationStatus(true);
+      await seedParticipants(5);
+      await seedPrize({ quantity: 1 });
+      const names = ["participants", "prizes", "spins", "settings"];
+      const before = await snapshotCollections(names);
+
+      await practiceSpin();
+
+      expect(await snapshotCollections(names)).toEqual(before);
+      expect((await readDoc("settings/registration"))?.open).toBe(true);
     });
   });
 });
@@ -309,7 +330,7 @@ describe("listWinnerRecords", () => {
       expect(record.prizeId).toBe(prizeId);
       expect(record.status).toBe("active");
       expect(record.createdByEmail).toBe(ADMIN.email);
-      expect(record.phone).toMatch(/^9\d{8}$/);
+      expect(record.phone).toMatch(/^\+519\d{8}$/);
       expect(record.discardedAt).toBeNull();
     }
   });

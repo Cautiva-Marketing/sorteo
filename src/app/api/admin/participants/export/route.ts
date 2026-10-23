@@ -1,5 +1,6 @@
 import { toCsv } from "@/lib/csv";
 import { formatLimaDateTime } from "@/lib/format";
+import { peruNational } from "@/lib/validation/phone";
 import { requireAdminApi } from "@/services/admin-auth.service";
 import { listParticipants } from "@/services/participants.service";
 import { getWinnerLookup } from "@/services/spins.service";
@@ -24,10 +25,11 @@ export async function GET(request: Request): Promise<Response> {
 
   const [participants, lookup] = await Promise.all([listParticipants(), getWinnerLookup()]);
   const rows = participants.map((participant) => {
-    // Un giro se resuelve por `drawId`; una ronda antigua, por el celular de 9 dígitos.
+    // Un giro se resuelve por `drawId`; una ronda antigua, por el celular de 9 dígitos (solo Perú).
+    const legacyPhone = peruNational(participant.phone);
     const info =
       (participant.drawId === null ? undefined : lookup.bySpinId.get(participant.drawId)) ??
-      lookup.byLegacyPhone.get(participant.phone);
+      (legacyPhone === null ? undefined : lookup.byLegacyPhone.get(legacyPhone));
     return info
       ? {
           ...participant,

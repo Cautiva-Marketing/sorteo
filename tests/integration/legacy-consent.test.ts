@@ -54,11 +54,14 @@ describe("participantes anteriores con el mapa `consent`", () => {
     expect(Object.keys(rows[0] ?? {}).sort()).toEqual([
       "company",
       "createdAt",
+      "crmInterest",
       "drawId",
       "fullName",
       "phone",
     ]);
-    expect(rows[0]?.phone).toBe("987654321");
+    expect(rows[0]?.phone).toBe("+51987654321");
+    // Documento anterior sin el campo: no está interesado.
+    expect(rows[0]?.crmInterest).toBe(false);
   });
 
   it("la exportación CSV incluye su fila y no tiene columna de consentimiento", async () => {
@@ -76,8 +79,9 @@ describe("participantes anteriores con el mapa `consent`", () => {
       new Uint8Array(await response.arrayBuffer()),
     );
     expect(text.split("\r\n")).toEqual([
-      BOM + "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
-      "José Núñez Güemes,987654321,Cautiva Marketing,2026-10-21 15:15:30,,,",
+      BOM +
+        "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
+      "José Núñez Güemes,51 987654321,Cautiva Marketing,No,2026-10-21 15:15:30,,,",
     ]);
   });
 
@@ -92,7 +96,7 @@ describe("participantes anteriores con el mapa `consent`", () => {
     expect(saved?.winner).toEqual({
       fullName: "José Núñez Güemes",
       company: "Cautiva Marketing",
-      phone: "987654321",
+      phone: "+51987654321",
     });
   });
 

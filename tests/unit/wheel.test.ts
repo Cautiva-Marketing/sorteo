@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   abbreviate,
@@ -11,16 +13,51 @@ import {
 
 const TWO_PI = Math.PI * 2;
 
+const CSS = readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
+
+/** Valor `#rrggbb` de un design token de globals.css. */
+function tokenHex(name: string): string {
+  const match = new RegExp(`--color-${name}:\\s*(#[0-9a-fA-F]{6})\\s*;`).exec(CSS);
+  if (!match) {
+    throw new Error(`Falta el token --color-${name} en globals.css`);
+  }
+  return match[1] as string;
+}
+
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((start) => {
+    const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Razón de contraste WCAG entre dos tokens. */
+function contrast(foreground: string, background: string): number {
+  const [light, dark] = [luminance(tokenHex(foreground)), luminance(tokenHex(background))].sort(
+    (a, b) => b - a,
+  ) as [number, number];
+  return (light + 0.05) / (dark + 0.05);
+}
+
 describe("PALETTE", () => {
-  it("tiene 6 entradas en el orden definido en el plan", () => {
+  it("tiene 3 entradas con los colores de la «A» del logo, en el orden definido", () => {
     expect(PALETTE).toEqual([
-      { background: "ink-900", text: "paper" },
-      { background: "gold-100", text: "ink-900" },
-      { background: "gold-600", text: "ink-900" },
-      { background: "gold-100", text: "ink-900" },
-      { background: "ink-900", text: "paper" },
-      { background: "gold-600", text: "ink-900" },
+      { background: "wheel-purple", text: "paper" },
+      { background: "wheel-lavender", text: "paper" },
+      { background: "wheel-cyan", text: "ink-900" },
     ]);
+  });
+
+  it("el texto de cada segmento tiene contraste AA (≥ 4,5) sobre su fondo (FR-113, SC-036)", () => {
+    for (const style of PALETTE) {
+      expect(contrast(style.text, style.background), style.background).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("el letrero (paper sobre wheel-purple) cumple AA y los pines (wheel-cyan sobre wheel-purple) ≥ 3", () => {
+    expect(contrast("paper", "wheel-purple")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("wheel-cyan", "wheel-purple")).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -31,29 +68,18 @@ describe("segmentColorIndexes", () => {
       expect(indexes).toHaveLength(count);
       for (const index of indexes) {
         expect(index).toBeGreaterThanOrEqual(0);
-        expect(index).toBeLessThan(PALETTE.length);
+        expect(index).toBeLessThanOrEqual(2);
       }
     }
   });
 
-  it("nunca deja dos segmentos contiguos del mismo color, incluida la unión último-primero", () => {
+  it("nunca deja dos segmentos contiguos con el mismo fondo, incluida la unión último-primero", () => {
     for (const count of [3, 4, 5, 6, 7, 8, 12, 13, 19, 50, 101, 500, 5000]) {
-      const indexes = segmentColorIndexes(count);
-      for (let position = 0; position < count; position += 1) {
-        const next = indexes[(position + 1) % count];
-        expect(indexes[position], `count=${count} posición=${position}`).not.toBe(next);
-      }
-    }
-  });
-
-  it("los colores de fondo contiguos tampoco se repiten cuando son negros, crema y dorados alternados", () => {
-    // Con el ciclo de 6 (negro, crema, dorado, crema, negro, dorado) dos vecinos nunca comparten fondo.
-    for (const count of [7, 13, 50, 500]) {
       const indexes = segmentColorIndexes(count);
       for (let position = 0; position < count; position += 1) {
         const current = PALETTE[indexes[position] as number]?.background;
         const next = PALETTE[indexes[(position + 1) % count] as number]?.background;
-        expect(current).not.toBe(next);
+        expect(current, `count=${count} posición=${position}`).not.toBe(next);
       }
     }
   });
@@ -63,11 +89,11 @@ describe("segmentColorIndexes", () => {
     expect(segmentColorIndexes(2)).toEqual([0, 1]);
   });
 
-  it("con 7 segmentos reasigna el último (6 % 6 = 0 coincidiría con el primero)", () => {
-    const indexes = segmentColorIndexes(7);
-    expect(indexes.slice(0, 6)).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(indexes[6]).not.toBe(indexes[5]);
-    expect(indexes[6]).not.toBe(indexes[0]);
+  it("con 4 segmentos reasigna el último (3 % 3 = 0 coincidiría con el primero)", () => {
+    const indexes = segmentColorIndexes(4);
+    expect(indexes.slice(0, 3)).toEqual([0, 1, 2]);
+    expect(indexes[3]).not.toBe(indexes[2]);
+    expect(indexes[3]).not.toBe(indexes[0]);
   });
 });
 

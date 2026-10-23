@@ -2,16 +2,18 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { AlreadyRegisteredDialog } from "@/components/registration/AlreadyRegisteredDialog";
 import { BackToHomeLink } from "@/components/registration/BackToHomeLink";
 import { ClosedNotice } from "@/components/registration/ClosedNotice";
 import { ThanksPanel } from "@/components/registration/ThanksPanel";
 import { WelcomeDialog } from "@/components/registration/WelcomeDialog";
 import { Alert } from "@/components/ui/Alert";
+import { PhoneField } from "@/components/registration/PhoneField";
 import { Button } from "@/components/ui/Button";
+import { CheckboxField } from "@/components/ui/CheckboxField";
 import { TextField } from "@/components/ui/TextField";
-import { toNational } from "@/lib/validation/phone";
+import { DEFAULT_COUNTRY } from "@/lib/validation/countries";
 import {
   registrationSchema,
   type RegistrationFormInput,
@@ -28,7 +30,7 @@ type DialogKind = "welcome" | "already" | null;
 /** Datos de la ventana de bienvenida: lo que la persona acaba de escribir (ya normalizado). */
 interface WelcomeData {
   fullName: string;
-  /** Los 9 dígitos nacionales. */
+  /** Celular en E.164 (`+56912345678`). */
   phone: string;
 }
 
@@ -124,15 +126,20 @@ export function RegistrationForm() {
     reset,
     setError,
     setFocus,
+    control,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<RegistrationFormInput, unknown, RegistrationInput>({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       fullName: "",
+      country: DEFAULT_COUNTRY,
       phone: "",
       company: "",
+      crmInterest: false,
     },
   });
+  const country = useWatch({ control, name: "country" }) ?? DEFAULT_COUNTRY;
 
   // Tras «Registrar a otra persona» el foco va al primer campo. Se hace en un efecto del padre:
   // el efecto del `Dialog` hijo ya cerró el `<dialog>` (y devolvió el foco al botón de envío).
@@ -195,7 +202,9 @@ export function RegistrationForm() {
       response = await fetch("/api/registrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        // `values` es la salida del esquema (celular en E.164, sin país): se envía el país elegido
+        // para que el servidor valide el celular contra el mismo país.
+        body: JSON.stringify({ ...values, country: getValues("country") }),
       });
     } catch {
       setServerError(MESSAGES.network);
@@ -203,7 +212,7 @@ export function RegistrationForm() {
     }
 
     if (response.status === 201) {
-      setWelcome({ fullName: values.fullName, phone: toNational(values.phone) });
+      setWelcome({ fullName: values.fullName, phone: values.phone });
       setDialog("welcome");
       return;
     }
@@ -242,21 +251,17 @@ export function RegistrationForm() {
         <TextField
           label="Nombres completos"
           autoComplete="name"
-          placeholder="Ej. Juan Carlos Pérez Rojas"
+          placeholder="Ej. María"
           icon={personIcon}
           error={errors.fullName?.message}
           {...register("fullName")}
         />
-        <TextField
-          label="Celular"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder="987 654 321"
-          helpText="9 dígitos, por ejemplo 987 654 321."
+        <PhoneField
+          registerCountry={register("country")}
+          registerPhone={register("phone")}
+          country={country}
           icon={phoneIcon}
           error={errors.phone?.message}
-          {...register("phone")}
         />
         <TextField
           label="Empresa u ocupación"
@@ -265,6 +270,10 @@ export function RegistrationForm() {
           icon={briefcaseIcon}
           error={errors.company?.message}
           {...register("company")}
+        />
+        <CheckboxField
+          label="¿Deseas adquirir el CRM con Agente IA?"
+          {...register("crmInterest")}
         />
         {serverError ? <Alert variant="error">{serverError}</Alert> : null}
         <div className="flex flex-col gap-1">

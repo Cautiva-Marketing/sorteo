@@ -179,6 +179,8 @@ export interface SeedParticipantInput {
   createdAt: Date;
   /** ID del sorteo ganado; `null` (por defecto) si aún no ganó. */
   drawId?: string | null;
+  /** Interés en el CRM con Agente IA (por defecto `false`). */
+  crmInterest?: boolean;
 }
 
 /** Siembra un participante con datos concretos (p. ej. textos con comas o fórmulas). */
@@ -189,6 +191,7 @@ export async function seedParticipant(input: SeedParticipantInput): Promise<void
     phone: { stringValue: input.phone },
     company: { stringValue: input.company },
     createdAt: { timestampValue: timestamp },
+    crmInterest: { booleanValue: input.crmInterest ?? false },
     drawId: input.drawId ? { stringValue: input.drawId } : { nullValue: null },
   });
 }

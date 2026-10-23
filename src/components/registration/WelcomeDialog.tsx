@@ -4,12 +4,12 @@ import { Confetti } from "@/components/ui/Confetti";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Logo } from "@/components/ui/Logo";
-import { formatNationalPhone } from "@/lib/validation/phone";
+import { formatPhoneDisplay } from "@/lib/validation/phone";
 
 export interface WelcomeDialogProps {
   open: boolean;
   fullName: string;
-  /** Los 9 dígitos nacionales del celular recién registrado. */
+  /** Celular recién registrado en E.164 (`+56912345678`). */
   phone: string;
   /** «Listo, muchas gracias» o Escape. */
   onDone: () => void;
@@ -89,6 +89,7 @@ export function WelcomeDialog({
       onClose={onDone}
       title="¡Bienvenido(a)!"
       centered
+      blurBackdrop
       icon={<Logo variant="icon" size={56} />}
     >
       {open ? <Confetti /> : null}
@@ -111,7 +112,7 @@ export function WelcomeDialog({
                 Celular:
               </dt>
               <dd className="font-display text-lg font-semibold text-ink-900">
-                {formatNationalPhone(phone)}
+                {formatPhoneDisplay(phone)}
               </dd>
             </div>
             <div>

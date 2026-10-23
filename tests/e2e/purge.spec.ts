@@ -52,10 +52,6 @@ test("tras girar, borrar exige escribir BORRAR y deja el listado vacío y el his
   await page.goto("/admin/sorteo");
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Girar para: Alexa" }).click();
-  await page
-    .getByRole("dialog", { name: "Se cerrarán las inscripciones" })
-    .getByRole("button", { name: "Sí, girar" })
-    .click();
   await expect(page.getByRole("dialog", { name: "¡Ganador #1!" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Continuar" }).click();
   await page.getByRole("button", { name: "Girar para: Alexa" }).click();
@@ -64,7 +60,7 @@ test("tras girar, borrar exige escribir BORRAR y deja el listado vacío y el his
   await page.goto("/admin/ganadores");
   await page.waitForLoadState("networkidle");
   const historyBefore = page.getByRole("region", { name: "Historial de ganadores" });
-  await expect(historyBefore.getByText(/Celular: 9\d{8}/).first()).toBeVisible();
+  await expect(historyBefore.getByText(/Celular: \+51 9\d{2} \d{3} \d{3}/).first()).toBeVisible();
   await expect(historyBefore.getByText(/Empresa u ocupación: Empresa /).first()).toBeVisible();
 
   // Las inscripciones ya quedaron cerradas con el primer giro: el borrado está disponible.
@@ -107,7 +103,7 @@ test("tras girar, borrar exige escribir BORRAR y deja el listado vacío y el his
   await expect(page.getByText("Aún no hay participantes")).toBeVisible();
   const csv = await page.request.get("/api/admin/participants/export");
   expect((await csv.text()).replace(String.fromCharCode(0xfeff), "")).toBe(
-    "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado",
+    "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado",
   );
 
   // El historial conserva número, premio, nombre, fecha y estado, sin celular ni empresa (FR-086).

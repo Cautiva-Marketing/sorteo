@@ -1,6 +1,5 @@
 import "server-only";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
-import { toNational } from "@/lib/validation/phone";
 import type { RegistrationInput } from "@/lib/validation/schemas";
 import type { ParticipantListItem } from "@/types";
 import { getDb } from "@/services/firebase/admin";
@@ -37,7 +36,7 @@ const REGISTRATION_DOC = "registration";
 
 /**
  * Registra un participante. En una sola transacción comprueba que las inscripciones estén
- * abiertas y crea `participants/{phone}` (el celular E.164 es el ID del documento). Solo se
+ * abiertas y crea `participants/{phone}` (el celular E.164 de cualquier país es el ID del documento). Solo se
  * guardan los campos del modelo de datos (minimización).
  */
 export async function registerParticipant(input: RegistrationInput): Promise<void> {
@@ -57,6 +56,7 @@ export async function registerParticipant(input: RegistrationInput): Promise<voi
         fullName: input.fullName,
         phone: input.phone,
         company: input.company,
+        crmInterest: input.crmInterest,
         createdAt: FieldValue.serverTimestamp(),
         drawId: null,
       });
@@ -77,7 +77,7 @@ function toDate(value: unknown): Date {
 
 /**
  * Lista todos los participantes, del más reciente al más antiguo (FR-016). Devuelve solo los
- * campos que muestra el panel; el celular se entrega en 9 dígitos y cualquier otro campo que
+ * campos que muestra el panel; el celular se entrega en E.164 y cualquier otro campo que
  * traiga un documento anterior (p. ej. `consent`) no sale de esta capa.
  */
 export async function listParticipants(): Promise<ParticipantListItem[]> {
@@ -90,8 +90,9 @@ export async function listParticipants(): Promise<ParticipantListItem[]> {
     const drawId: unknown = data.drawId;
     return {
       fullName: String(data.fullName ?? ""),
-      phone: toNational(String(data.phone ?? doc.id)),
+      phone: String(data.phone ?? doc.id),
       company: String(data.company ?? ""),
+      crmInterest: data.crmInterest === true,
       createdAt: toDate(data.createdAt),
       drawId: typeof drawId === "string" ? drawId : null,
     };

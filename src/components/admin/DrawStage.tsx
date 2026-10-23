@@ -18,7 +18,6 @@ import { useFullscreen } from "@/components/admin/useFullscreen";
 import { WinnerDialog } from "@/components/admin/WinnerDialog";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { Dialog } from "@/components/ui/Dialog";
 import {
   ExpandIcon,
   GiftIcon,
@@ -38,13 +37,11 @@ export interface DrawStageProps {
   prizes: PrizeView[];
   /** Elegibles de la ruleta, leídos en el servidor. */
   participants: WheelParticipant[];
-  /** Las inscripciones siguen abiertas: el primer giro real pide confirmar el cierre (FR-089). */
-  registrationOpen: boolean;
   /** Ganadores activos (más reciente primero): se listan junto a la ruleta. */
   winners: WinnerRecord[];
 }
 
-type Phase = "idle" | "confirming" | "requesting" | "spinning" | "result" | "discarding";
+type Phase = "idle" | "requesting" | "spinning" | "result" | "discarding";
 
 interface ResultState {
   /** Id del giro guardado; `null` en práctica. */
@@ -150,16 +147,12 @@ function codeOf(body: unknown): string | null {
 }
 
 /**
- * Escenario del sorteo (FR-064 a FR-077, FR-089, FR-090): premio en juego, ruleta, botón de girar,
- * modo de práctica, silencio y ventana del ganador. El servidor decide y guarda al ganador antes de
+ * Escenario del sorteo (FR-064 a FR-077, FR-090, FR-106): premio en juego, ruleta, botón de girar,
+ * modo de práctica, silencio y ventana del ganador. «Girar» gira de inmediato, sin ventana de
+ * confirmación: el primer giro real cierra las inscripciones en el servidor. El servidor decide y guarda al ganador antes de
  * la animación; aquí solo se anima hacia el resultado recibido.
  */
-export function DrawStage({
-  prizes,
-  participants: serverParticipants,
-  registrationOpen,
-  winners,
-}: DrawStageProps) {
+export function DrawStage({ prizes, participants: serverParticipants, winners }: DrawStageProps) {
   const router = useRouter();
   const [, startRefresh] = useTransition();
   const [chosenPrizeId, setChosenPrizeId] = useState<string | null>(null);
@@ -172,9 +165,6 @@ export function DrawStage({
   const [dialogError, setDialogError] = useState<string | null>(null);
   // Descartados en esta sesión: salen de la ruleta al instante, antes de que se refresque el servidor.
   const [excluded, setExcluded] = useState<string[]>([]);
-  // El primer giro real cierra las inscripciones; hasta que el servidor refresque la página, la
-  // propiedad `registrationOpen` sigue vieja y no debe volver a pedirse la confirmación.
-  const [closedBySpin, setClosedBySpin] = useState(false);
   const [size, setSize] = useState(MIN_SIZE);
   const spinCounter = useRef(0);
   const wheelBox = useRef<HTMLDivElement>(null);
@@ -250,15 +240,10 @@ export function DrawStage({
   function handleSpinClick(): void {
     // El audio se prepara dentro del gesto del usuario para que el navegador no lo bloquee.
     primeAudio();
-    setError(null);
-    if (!practice && registrationOpen && !closedBySpin) {
-      setPhase("confirming");
-      return;
-    }
-    void startSpin(false);
+    void startSpin();
   }
 
-  async function startSpin(confirmClose: boolean): Promise<void> {
+  async function startSpin(): Promise<void> {
     setPhase("requesting");
     setError(null);
     try {
@@ -267,11 +252,7 @@ export function DrawStage({
         : await adminFetch("/api/admin/spins", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(
-              confirmClose
-                ? { prizeId: activePrize?.id, confirmCloseRegistration: true }
-                : { prizeId: activePrize?.id },
-            ),
+            body: JSON.stringify({ prizeId: activePrize?.id }),
           });
       const body = await readJson(response);
 
@@ -281,9 +262,6 @@ export function DrawStage({
           const known = participants.some((entry) => entry.ref === parsed.winnerRef);
           const instant = !known || window.matchMedia(REDUCED_MOTION_QUERY).matches;
           spinCounter.current += 1;
-          if (!practice) {
-            setClosedBySpin(true);
-          }
           setResult({
             spinId: parsed.spinId,
             winnerRef: parsed.winnerRef,
@@ -299,9 +277,6 @@ export function DrawStage({
           return;
         }
         setError(MESSAGES.failed);
-      } else if (codeOf(body) === "CONFIRMATION_REQUIRED") {
-        setPhase("confirming");
-        return;
       } else if (codeOf(body) === "PRIZE_EXHAUSTED") {
         setError(MESSAGES.prizeExhausted);
         refresh();
@@ -354,7 +329,7 @@ export function DrawStage({
     setResult(null);
     setSpinTarget(null);
     // El premio sigue en juego (la unidad volvió) y la lista del panel aún no se refrescó.
-    await startSpin(false);
+    await startSpin();
   }
 
   function closeResult(): void {
@@ -400,13 +375,13 @@ export function DrawStage({
   const pointerNameBox = (
     <section
       aria-label="Nombre bajo el puntero"
-      className={`mx-auto flex w-full items-center justify-center rounded-2xl border-2 border-gold-600 bg-gold-100 px-4 py-2 text-center ${
+      className={`mx-auto flex w-full items-center justify-center rounded-2xl border-2 border-wheel-cyan bg-wheel-purple px-4 py-2 text-center ${
         fullscreen ? "min-h-24 max-w-3xl" : "min-h-14 max-w-md"
       }`}
     >
       <p
         aria-hidden="true"
-        className={`font-display font-extrabold break-words text-ink-900 uppercase ${
+        className={`font-display font-extrabold break-words text-paper uppercase ${
           fullscreen ? "text-[2.5rem] leading-tight" : "text-lg tracking-wide"
         }`}
       >
@@ -686,24 +661,7 @@ export function DrawStage({
         </>
       )}
 
-      {/* Las ventanas van dentro de este contenedor para verse también en pantalla completa. */}
-      <Dialog
-        open={phase === "confirming"}
-        onClose={() => setPhase("idle")}
-        title="Se cerrarán las inscripciones"
-      >
-        <p className="text-base text-ink-900">
-          Al girar por primera vez se cerrarán las inscripciones para que la lista de participantes
-          quede fija durante el sorteo. Podrás reabrirlas desde Campaña.
-        </p>
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button variant="secondary" onClick={() => setPhase("idle")}>
-            Cancelar
-          </Button>
-          <Button onClick={() => void startSpin(true)}>Sí, girar</Button>
-        </div>
-      </Dialog>
-
+      {/* La ventana del ganador va dentro de este contenedor para verse también en pantalla completa. */}
       <WinnerDialog
         open={(phase === "result" || phase === "discarding") && result !== null}
         number={result?.number ?? 0}

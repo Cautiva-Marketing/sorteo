@@ -11,6 +11,8 @@ export interface DialogProps {
   icon?: ReactNode;
   /** Centra el título (ventanas de resultado); por defecto va alineado a la izquierda. */
   centered?: boolean;
+  /** Desenfoca el fondo tras la ventana; por defecto solo se oscurece (panel de administración). */
+  blurBackdrop?: boolean;
   children: ReactNode;
 }
 
@@ -20,9 +22,19 @@ export interface DialogProps {
  * con `aria-labelledby`. El contenido solo se monta mientras está abierto, así que cada apertura
  * empieza con el estado limpio.
  *
+ * El fondo solo se oscurece; `blurBackdrop` añade además un leve desenfoque (ventanas del formulario público).
+ *
  * El cierre provocado por pasar `open={false}` NO invoca `onClose`: el padre ya sabe que lo cerró.
  */
-export function Dialog({ open, onClose, title, icon, centered = false, children }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  icon,
+  centered = false,
+  blurBackdrop = false,
+  children,
+}: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closingFromProp = useRef(false);
   const titleId = useId();
@@ -53,7 +65,7 @@ export function Dialog({ open, onClose, title, icon, centered = false, children 
       ref={dialogRef}
       aria-labelledby={titleId}
       onClose={handleClose}
-      className="m-auto w-[calc(100%-2rem)] max-w-md overflow-visible rounded-3xl border border-line bg-paper p-6 text-ink-900 backdrop:bg-ink-900/50 backdrop:backdrop-blur-[2px]"
+      className={`m-auto w-[calc(100%-2rem)] max-w-md overflow-visible rounded-3xl border border-line bg-paper p-6 text-ink-900 backdrop:bg-ink-900/50${blurBackdrop ? " backdrop:backdrop-blur-[2px]" : ""}`}
     >
       {open ? (
         <div className="flex flex-col gap-4">

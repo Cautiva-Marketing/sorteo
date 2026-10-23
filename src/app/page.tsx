@@ -29,7 +29,7 @@ export default async function HomePage() {
     // sobrante queda arriba y abajo, nunca entre la tarjeta y los logos aliados.
     <div className="flex min-h-dvh flex-col justify-center">
       <header className="flex justify-center px-4 pt-6 pb-3">
-        <Logo size={72} />
+        <Logo size={88} />
       </header>
       <main className="mx-auto w-full max-w-3xl px-4">
         <h1 className="text-center font-display text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl">
@@ -42,11 +42,12 @@ export default async function HomePage() {
           initial={status}
           qr={
             registrationUrl ? (
-              // El alto de la pantalla limita el QR para que todo quepa sin desplazarse (28 rem ≈
-              // lo que ocupa todo lo que no es el QR); nunca baja de 16 rem para seguir legible.
+              // El alto de la pantalla limita el QR para que todo quepa sin desplazarse: 28 rem se
+              // reservan para lo que no es el QR y el QR ocupa el 85 % del resto (≈ 15 % menor que
+              // antes, FR-109); nunca baja de 14 rem para seguir legible.
               <QrCode
                 url={registrationUrl}
-                className="mx-auto h-auto w-full max-w-[min(100%,max(16rem,calc(100dvh-28rem)))]"
+                className="mx-auto h-auto w-full max-w-[min(100%,max(14rem,calc((100dvh-28rem)*0.85)))]"
               />
             ) : (
               <Alert variant="info">No pudimos generar el código QR. Recarga la página.</Alert>

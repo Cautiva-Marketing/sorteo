@@ -106,3 +106,8 @@ export const DownloadIcon = (props: IconProps) => (
     <path d="M12 4v10M8 10.5l4 4 4-4M5 19.5h14" />
   </Icon>
 );
+export const FacebookIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M14 8.5h2.5V5H14a3.5 3.5 0 0 0-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.4l.6-3.5H14V8.9c0-.2.1-.4.3-.4Z" />
+  </Icon>
+);

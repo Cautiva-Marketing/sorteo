@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createAdminUser, resetFirestore } from "./helpers/emulators";
+import { E2E_ADMIN, loginAsAdmin as loginAsE2eAdmin } from "./helpers/admin";
+import {
+  createAdminUser,
+  resetFirestore,
+  seedParticipants,
+  setRegistrationOpen,
+} from "./helpers/emulators";
 
 // La primera petición compila las rutas en modo desarrollo: se dejan márgenes amplios.
 test.setTimeout(120_000);
@@ -50,6 +56,7 @@ async function expectBrandStyle(page: Page) {
 
 test.beforeAll(async () => {
   await createAdminUser(ADMIN.email, ADMIN.password, { admin: true });
+  await createAdminUser(E2E_ADMIN.email, E2E_ADMIN.password, { admin: true });
 });
 
 test.beforeEach(async () => {
@@ -84,4 +91,56 @@ test("el panel usa el estilo de marca y la barra lateral es blanca", async ({ pa
     await page.goto(path);
     await expectBrandStyle(page);
   }
+});
+
+/** `backdrop-filter` del `::backdrop` de un `<dialog>` abierto. */
+async function backdropFilter(page: Page): Promise<string> {
+  return page.evaluate(
+    () =>
+      getComputedStyle(document.querySelector("dialog[open]") as Element, "::backdrop")
+        .backdropFilter,
+  );
+}
+
+test("las ventanas del panel oscurecen el fondo sin desenfocarlo (FR-116)", async ({ page }) => {
+  await seedParticipants(2);
+  await setRegistrationOpen(false);
+  await loginAsE2eAdmin(page);
+  await page.goto("/admin/campana");
+  await page.waitForLoadState("networkidle");
+
+  await page.getByRole("button", { name: "Borrar datos de participantes" }).click();
+  const dialog = page.getByRole("dialog", { name: "Borrar los datos de los participantes" });
+  await expect(dialog).toBeVisible();
+  expect(await backdropFilter(page)).toBe("none");
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
+test("las ventanas del formulario público conservan el desenfoque (FR-117)", async ({ page }) => {
+  await page.goto("/registro");
+  await page.waitForLoadState("networkidle");
+  const submit = async () => {
+    await page.getByLabel("Nombres completos", { exact: true }).fill("María");
+    await page.getByLabel("Celular", { exact: true }).fill("987654321");
+    await page.getByLabel("Empresa u ocupación", { exact: true }).fill("Cautiva");
+    await page.getByRole("button", { name: "Enviar y participar" }).click();
+  };
+
+  await submit();
+  const welcome = page.getByRole("dialog", { name: "¡Bienvenido(a)!" });
+  await expect(welcome).toBeVisible();
+  expect(await backdropFilter(page)).toContain("blur");
+
+  // Repetir el mismo celular abre la ventana «ya registrado».
+  await page.getByRole("button", { name: "Registrar a otra persona" }).click();
+  await submit();
+  const already = page.getByRole("dialog", { name: "Ya estás participando en el sorteo" });
+  await expect(already).toBeVisible();
+  expect(await backdropFilter(page)).toContain("blur");
+
+  // Escape cierra la ventana.
+  await page.keyboard.press("Escape");
+  await expect(already).toBeHidden();
 });

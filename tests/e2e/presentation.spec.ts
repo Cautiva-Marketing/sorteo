@@ -101,3 +101,43 @@ test("Escape sale de la pantalla completa sin perder el premio ni la práctica",
   await expect(page.getByRole("radio", { name: /Alexa/ })).toBeChecked();
   await expect(page.getByRole("button", { name: "Pantalla completa" })).toBeVisible();
 });
+
+test("la ruleta usa la paleta de la «A» del logo: letrero morado con borde celeste y canvas pintado", async ({
+  page,
+}) => {
+  await loginAsAdmin(page);
+  await openDrawPage(page);
+
+  const tokens = await page.evaluate(() => {
+    // Un elemento de prueba resuelve el token a `rgb(...)`, igual que el valor calculado del letrero.
+    const probe = document.createElement("div");
+    const resolve = (name: string): string => {
+      probe.style.backgroundColor = `var(--color-${name})`;
+      document.body.append(probe);
+      const value = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return value;
+    };
+    return { purple: resolve("wheel-purple"), cyan: resolve("wheel-cyan") };
+  });
+  const box = page.locator('section[aria-label="Nombre bajo el puntero"]');
+  await expect(box).toHaveCSS("background-color", tokens.purple);
+  await expect(box).toHaveCSS("border-top-color", tokens.cyan);
+
+  // El canvas se pinta: al menos un píxel no transparente en el centro de la rueda.
+  const painted = await page.getByTestId("roulette-canvas").evaluate((node) => {
+    const canvas = node as HTMLCanvasElement;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return false;
+    }
+    const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let index = 3; index < data.length; index += 4) {
+      if (data[index] !== 0) {
+        return true;
+      }
+    }
+    return false;
+  });
+  expect(painted).toBe(true);
+});

@@ -60,6 +60,8 @@ describe("POST /api/admin/spins", () => {
     const text = await response.clone().text();
     expect(text).not.toMatch(/9\d{8}/);
     expect(text).not.toMatch(/phone|company|Empresa/);
+    // El interés en el CRM nunca viaja al giro (feature 004, FR-105).
+    expect(text).not.toMatch(/crmInterest/i);
     const body = await json(response);
     expect(Object.keys(body).sort()).toEqual([
       "createdAt",
@@ -82,23 +84,23 @@ describe("POST /api/admin/spins", () => {
     expect((await json(response)).code).toBe("VALIDATION_ERROR");
   });
 
-  it("409 CONFIRMATION_REQUIRED con inscripciones abiertas y sin confirmación", async () => {
-    await seedRegistrationStatus(true);
-    await seedParticipants(4);
-    const prizeId = await seedPrize({ quantity: 1 });
-
-    const response = await post(spinPost, "/api/admin/spins", { prizeId });
-
-    expect(response.status).toBe(409);
-    expect((await json(response)).code).toBe("CONFIRMATION_REQUIRED");
-  });
-
-  it("al confirmar cierra las inscripciones y GET /api/status lo refleja de inmediato", async () => {
+  it("201 con inscripciones abiertas y sin confirmación; GET /api/status lo refleja de inmediato", async () => {
     await seedRegistrationStatus(true);
     await seedParticipants(4);
     const prizeId = await seedPrize({ quantity: 1 });
     // Calienta la memoria del estado público con las inscripciones abiertas.
     expect(await json(await statusGet())).toMatchObject({ open: true });
+
+    const response = await post(spinPost, "/api/admin/spins", { prizeId });
+
+    expect(response.status).toBe(201);
+    expect(await json(await statusGet())).toMatchObject({ open: false });
+  });
+
+  it("201 con un cuerpo antiguo que trae confirmCloseRegistration (la clave se ignora)", async () => {
+    await seedRegistrationStatus(true);
+    await seedParticipants(4);
+    const prizeId = await seedPrize({ quantity: 1 });
 
     const response = await post(spinPost, "/api/admin/spins", {
       prizeId,
@@ -106,7 +108,6 @@ describe("POST /api/admin/spins", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(await json(await statusGet())).toMatchObject({ open: false });
   });
 
   it("409 PRIZE_EXHAUSTED con un premio sin unidades pendientes", async () => {

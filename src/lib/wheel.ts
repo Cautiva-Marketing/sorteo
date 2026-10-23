@@ -14,7 +14,7 @@ const TWO_PI = Math.PI * 2;
 const EDGE_EPSILON = 1e-9;
 
 /** Nombres de los design tokens de color que usa la rueda (`--color-<token>` en globals.css). */
-export type ColorToken = "ink-900" | "paper" | "gold-100" | "gold-600";
+export type ColorToken = "wheel-purple" | "wheel-lavender" | "wheel-cyan" | "paper" | "ink-900";
 
 export interface SegmentStyle {
   background: ColorToken;
@@ -22,14 +22,11 @@ export interface SegmentStyle {
   text: ColorToken;
 }
 
-/** Negro, crema y dorado alternados; dos vecinos nunca comparten fondo. */
+/** Morado, lavanda y celeste de la «A» del logo, en ciclo; dos vecinos nunca comparten fondo. */
 export const PALETTE: ReadonlyArray<SegmentStyle> = [
-  { background: "ink-900", text: "paper" },
-  { background: "gold-100", text: "ink-900" },
-  { background: "gold-600", text: "ink-900" },
-  { background: "gold-100", text: "ink-900" },
-  { background: "ink-900", text: "paper" },
-  { background: "gold-600", text: "ink-900" },
+  { background: "wheel-purple", text: "paper" },
+  { background: "wheel-lavender", text: "paper" },
+  { background: "wheel-cyan", text: "ink-900" },
 ];
 
 function mod(value: number, divisor: number): number {
@@ -41,8 +38,8 @@ function backgroundOf(paletteIndex: number): ColorToken {
 }
 
 /**
- * Índice de paleta de cada segmento: `i % 6`. Si la unión último-primero repite color (solo con
- * `count % 6 == 1`), el último se reasigna a un color distinto del anterior y del primero. Con
+ * Índice de paleta de cada segmento: `i % 3`. Si la unión último-primero repite color (solo con
+ * `count % 3 == 1`), el último se reasigna a un color distinto del anterior y del primero. Con
  * `count = 1` la rueda es un disco único y con `count = 2` se usan los dos primeros (FR-067).
  */
 export function segmentColorIndexes(count: number): number[] {

@@ -54,10 +54,65 @@ describe("POST /api/registrations", () => {
     expect(Object.keys(data ?? {}).sort()).toEqual([
       "company",
       "createdAt",
+      "crmInterest",
       "drawId",
       "fullName",
       "phone",
     ]);
+  });
+
+  it("201: sin el país crea el documento +51… (Perú por defecto)", async () => {
+    const response = await POST(registrationRequest({ ...validBody, phone: "987 654 321" }));
+    expect(response.status).toBe(201);
+    expect((await getDb().collection("participants").doc("+51987654321").get()).exists).toBe(true);
+  });
+
+  it("201: con country CL, un solo nombre y 9 1234 5678 crea participants/+56912345678", async () => {
+    const response = await POST(
+      registrationRequest({ ...validBody, fullName: "María", country: "CL", phone: "9 1234 5678" }),
+    );
+
+    expect(response.status).toBe(201);
+    const snapshot = await getDb().collection("participants").doc("+56912345678").get();
+    expect(snapshot.exists).toBe(true);
+    expect(snapshot.data()).toMatchObject({ fullName: "María", phone: "+56912345678" });
+    expect(snapshot.data()).not.toHaveProperty("country");
+  });
+
+  it("201: sin crmInterest guarda false y con crmInterest: true guarda true", async () => {
+    await POST(registrationRequest(validBody));
+    const sin = (await getDb().collection("participants").doc("+51987654321").get()).data();
+    expect(sin?.crmInterest).toBe(false);
+
+    const response = await POST(
+      registrationRequest({ ...validBody, phone: "912 345 678", crmInterest: true }),
+    );
+    expect(response.status).toBe(201);
+    const con = (await getDb().collection("participants").doc("+51912345678").get()).data();
+    expect(con?.crmInterest).toBe(true);
+  });
+
+  it("400 VALIDATION_ERROR: un crmInterest que no es booleano se rechaza", async () => {
+    const response = await POST(registrationRequest({ ...validBody, crmInterest: "si" }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("VALIDATION_ERROR");
+    expect(await participantCount()).toBe(0);
+  });
+
+  it("400 VALIDATION_ERROR: un celular inválido para el país elegido da fieldErrors.phone", async () => {
+    const response = await POST(
+      registrationRequest({ ...validBody, country: "CL", phone: "812345678" }),
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.fieldErrors.phone[0]).toMatch(/chileno/i);
+    expect(await participantCount()).toBe(0);
+  });
+
+  it("400 VALIDATION_ERROR: un país fuera de Sudamérica se rechaza", async () => {
+    const response = await POST(registrationRequest({ ...validBody, country: "MX" }));
+    expect(response.status).toBe(400);
+    expect(await participantCount()).toBe(0);
   });
 
   it("201: sin la cabecera X-Firebase-AppCheck (ya no se exige ninguna verificación)", async () => {
@@ -88,7 +143,7 @@ describe("POST /api/registrations", () => {
     const response = await POST(
       registrationRequest({
         ...validBody,
-        fullName: "María",
+        fullName: "A",
         phone: "812345678",
         company: "A",
       }),

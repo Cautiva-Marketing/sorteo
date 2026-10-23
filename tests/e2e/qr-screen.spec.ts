@@ -108,7 +108,7 @@ test("con las inscripciones cerradas desde el inicio se ve el aviso y el contado
   await expect(page.getByRole("img", { name: /Código QR/ })).toHaveCount(0);
 });
 
-test("en una pantalla de 40 pulgadas Full HD el símbolo del QR mide al menos 450 px", async ({
+test("en una pantalla de 40 pulgadas Full HD el símbolo del QR mide al menos 380 px y no supera 545 px de ancho", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -122,8 +122,61 @@ test("en una pantalla de 40 pulgadas Full HD el símbolo del QR mide al menos 45
 
   expect(box).not.toBeNull();
   expect(total).toBeGreaterThan(quiet * 2);
+  // El QR es ≈ 15 % menor que antes (FR-109): ≤ 545 px de ancho a 1920×1080 y símbolo ≥ 380 px.
+  expect(box?.width ?? 0).toBeLessThanOrEqual(545);
   const symbol = ((box?.width ?? 0) * ((total ?? 0) - quiet * 2)) / (total ?? 1);
-  expect(symbol).toBeGreaterThanOrEqual(450);
+  expect(symbol).toBeGreaterThanOrEqual(380);
+});
+
+test("en 1366×768 el QR mide como máximo 280 px y no baja de 14 rem", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto("/");
+
+  const box = await page.getByRole("img", { name: /Código QR/ }).boundingBox();
+
+  expect(box?.width ?? 0).toBeLessThanOrEqual(280);
+  expect(box?.width ?? 0).toBeGreaterThanOrEqual(224);
+});
+
+for (const viewport of [
+  { width: 1920, height: 1080 },
+  { width: 1366, height: 768 },
+]) {
+  test(`en ${viewport.width}×${viewport.height} los logos aliados miden al menos 48 px de alto y el de Creando Valor 88 px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    for (const name of ["Satelcom", "Cautiva Marketing"]) {
+      const box = await page.getByRole("img", { name, exact: true }).boundingBox();
+      expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(48);
+    }
+    const logo = await page.getByRole("img", { name: "Creando Valor", exact: true }).boundingBox();
+    expect(Math.round(logo?.height ?? 0)).toBe(88);
+  });
+}
+
+test("a 360 px los logos aliados miden al menos 44 px de alto, caben en una sola fila y no hay desplazamiento horizontal", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const satelcom = await page.getByRole("img", { name: "Satelcom", exact: true }).boundingBox();
+  const cautiva = await page
+    .getByRole("img", { name: "Cautiva Marketing", exact: true })
+    .boundingBox();
+
+  expect(satelcom?.height ?? 0).toBeGreaterThanOrEqual(44);
+  expect(cautiva?.height ?? 0).toBeGreaterThanOrEqual(44);
+  // Una sola fila: ambos logos comparten la misma franja vertical.
+  expect(Math.abs((satelcom?.y ?? 0) - (cautiva?.y ?? 0))).toBeLessThan(4);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
 });
 
 for (const viewport of [

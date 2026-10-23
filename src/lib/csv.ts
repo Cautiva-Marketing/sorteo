@@ -1,10 +1,13 @@
 import { formatLimaDateTime } from "@/lib/format";
+import { formatPhoneCsv } from "@/lib/validation/phone";
 
-/** Fila exportable: el celular ya viene en 9 dígitos. */
+/** Fila exportable: el celular viene en E.164 (o el valor antiguo de 9 dígitos). */
 export interface CsvRow {
   fullName: string;
   phone: string;
   company: string;
+  /** Interés en el CRM con Agente IA. */
+  crmInterest: boolean;
   createdAt: Date;
   /** Premio del giro; `null` = «Sin premio» (ronda anterior a la feature 003). Solo importa si ganó. */
   prizeName?: string | null;
@@ -18,8 +21,9 @@ export interface CsvRow {
 const BOM = String.fromCharCode(0xfeff);
 const HEADER = [
   "Nombres",
-  "Celular",
+  "Celular (con código de país)",
   "Empresa u ocupación",
+  "Interesado en CRM",
   "Fecha de registro",
   "Premio",
   "N.º de ganador",
@@ -61,7 +65,7 @@ function winnerCells(row: CsvRow): string[] {
 /**
  * Serializa la lista de participantes a CSV (research D-011): BOM UTF-8, coma como separador,
  * columnas fijas y fecha de registro en hora de Lima, más premio, número y estado de quienes
- * ganaron. Los textos libres se neutralizan; el celular (9 dígitos validados) no lo necesita.
+ * ganaron. Los textos libres se neutralizan; el celular («51 987654321», validado) no lo necesita.
  * Sin filas devuelve solo el encabezado.
  */
 export function toCsv(rows: ReadonlyArray<CsvRow>): string {
@@ -70,8 +74,9 @@ export function toCsv(rows: ReadonlyArray<CsvRow>): string {
     lines.push(
       [
         escapeCell(neutralizeFormula(row.fullName)),
-        escapeCell(row.phone),
+        escapeCell(formatPhoneCsv(row.phone)),
         escapeCell(neutralizeFormula(row.company)),
+        row.crmInterest ? "Sí" : "No",
         escapeCell(formatLimaDateTime(row.createdAt)),
         ...winnerCells(row),
       ].join(","),

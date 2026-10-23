@@ -83,7 +83,7 @@ test("la pestaña Sorteo muestra la ruleta con premios y ganadores, sin formular
   await expect(page.getByRole("link", { name: "Premios", exact: true })).toBeVisible();
 });
 
-test("giro real: confirma el cierre de inscripciones, guarda al ganador y conserva el historial", async ({
+test("giro real: gira sin ventana de confirmación, cierra las inscripciones y conserva el historial", async ({
   page,
 }) => {
   await seedParticipants(10);
@@ -92,18 +92,13 @@ test("giro real: confirma el cierre de inscripciones, guarda al ganador y conser
   await openDrawPage(page);
   await expect(page.getByText("Participantes elegibles: 10")).toBeVisible();
 
-  // Con las inscripciones abiertas el primer giro pide confirmar; cancelar no gira ni cierra.
+  // Con las inscripciones abiertas, «Girar» gira de inmediato: no hay ventana de confirmación y
+  // la ruleta se mueve en 2 s o menos (SC-034): el letrero del puntero ya muestra un nombre.
   await page.getByRole("button", { name: "Girar para: Alexa" }).click();
-  const confirm = page.getByRole("dialog", { name: "Se cerrarán las inscripciones" });
-  await expect(confirm).toBeVisible();
-  await confirm.getByRole("button", { name: "Cancelar" }).click();
-  await expect(confirm).toBeHidden();
-  await openWinnersPage(page);
-  await expect(page.getByText("Aún no hay ganadores.")).toBeVisible();
-  await openDrawPage(page);
-
-  await page.getByRole("button", { name: "Girar para: Alexa" }).click();
-  await confirm.getByRole("button", { name: "Sí, girar" }).click();
+  await expect(page.getByRole("dialog", { name: "Se cerrarán las inscripciones" })).toHaveCount(0);
+  await expect(
+    page.locator('section[aria-label="Nombre bajo el puntero"] p[aria-hidden="true"]'),
+  ).not.toHaveText("", { timeout: 2_000 });
 
   // El giro dura ~6,5 s; la ventana muestra premio y nombre, nunca un celular.
   const winnerDialog = page.getByRole("dialog", { name: "¡Ganador #1!" });
@@ -132,7 +127,7 @@ test("giro real: confirma el cierre de inscripciones, guarda al ganador y conser
   await expect(entry).toHaveCount(1);
   await expect(entry).toContainText("#1");
   await expect(entry).toContainText("Premio: Alexa");
-  await expect(entry).toContainText(/Celular: 9\d{8}/);
+  await expect(entry).toContainText(/Celular: \+51 9\d{2} \d{3} \d{3}/);
   await expect(entry).toContainText("Ganador");
 
   // Recargar conserva el resultado y las inscripciones quedaron cerradas.
@@ -141,6 +136,14 @@ test("giro real: confirma el cierre de inscripciones, guarda al ganador y conser
   await expect(history(page).getByRole("listitem")).toHaveCount(1);
   await page.goto("/registro");
   await expect(page.getByText("Las inscripciones están cerradas")).toBeVisible();
+
+  // El control de Campaña permite reabrirlas y el QR vuelve a mostrarse (FR-108).
+  await page.goto("/admin/campana");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Abrir inscripciones" }).click();
+  await expect(page.getByText("Listo: las inscripciones quedaron abiertas.")).toBeVisible();
+  await page.goto("/");
+  await expect(page.getByRole("img", { name: /Código QR/ })).toBeVisible({ timeout: 10_000 });
 });
 
 test("con las inscripciones cerradas el giro no pide confirmación y numera los ganadores", async ({

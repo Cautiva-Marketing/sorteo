@@ -1,7 +1,6 @@
 import { DrawStage } from "@/components/admin/DrawStage";
 import { requireAdmin } from "@/services/admin-auth.service";
 import { listPrizes } from "@/services/prizes.service";
-import { getRegistrationStatus } from "@/services/registration-status.service";
 import { listWheelParticipants, listWinnerRecords } from "@/services/spins.service";
 
 // Premios y participantes cambian con cada giro: nunca se sirven desde caché.
@@ -14,10 +13,9 @@ export const dynamic = "force-dynamic";
 export default async function DrawPage() {
   // El layout ya exige sesión, pero no se vuelve a ejecutar en cada navegación del cliente.
   await requireAdmin();
-  const [prizes, participants, registration, records] = await Promise.all([
+  const [prizes, participants, records] = await Promise.all([
     listPrizes(),
     listWheelParticipants(),
-    getRegistrationStatus(),
     listWinnerRecords(),
   ]);
 
@@ -25,7 +23,6 @@ export default async function DrawPage() {
     <DrawStage
       prizes={prizes}
       participants={participants}
-      registrationOpen={registration.open}
       winners={records.filter((record) => record.status === "active")}
     />
   );

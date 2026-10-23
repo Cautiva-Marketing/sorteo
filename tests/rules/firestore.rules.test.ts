@@ -39,6 +39,14 @@ beforeEach(async () => {
       company: "Empresa",
       drawId: null,
     });
+    // Feature 004: participante de otro país (ID = E.164 con el prefijo del país).
+    await db.doc("participants/+56912345678").set({
+      fullName: "Maria Perez",
+      phone: "+56912345678",
+      company: "Empresa",
+      crmInterest: true,
+      drawId: null,
+    });
     await db.doc("draws/sorteo-1").set({ requestedCount: 1, winners: [], purgedAt: null });
     await db.doc("settings/registration").set({ open: true });
     await db.doc("settings/draw").set({ nextNumber: 1 });
@@ -69,6 +77,7 @@ interface Target {
 
 const targets: Target[] = [
   { collection: "participants", existingDoc: "+51987654321", newDoc: "+51900000000" },
+  { collection: "participants", existingDoc: "+56912345678", newDoc: "+56900000000" },
   { collection: "draws", existingDoc: "sorteo-1", newDoc: "sorteo-nuevo" },
   { collection: "settings", existingDoc: "registration", newDoc: "otro" },
   // Feature 003: el contador del sorteo (`settings/draw`), los premios y los giros.

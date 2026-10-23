@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import { neutralizeFormula, toCsv } from "@/lib/csv";
 
 const BOM = String.fromCharCode(0xfeff);
-const HEADER = "Nombres,Celular,Empresa u ocupación,Fecha de registro,Premio,N.º de ganador,Estado";
+const HEADER =
+  "Nombres,Celular (con código de país),Empresa u ocupación,Interesado en CRM,Fecha de registro,Premio,N.º de ganador,Estado";
 
 function row(
   overrides: Partial<{
     fullName: string;
     phone: string;
     company: string;
+    crmInterest: boolean;
     createdAt: Date;
     prizeName: string | null;
     winnerNumber: number | null;
@@ -17,8 +19,9 @@ function row(
 ) {
   return {
     fullName: "José Núñez",
-    phone: "987654321",
+    phone: "+51987654321",
     company: "Cautiva Marketing",
+    crmInterest: false,
     // 2026-10-21 20:15:30 UTC = 15:15:30 en Lima (UTC−5).
     createdAt: new Date("2026-10-21T20:15:30.000Z"),
     ...overrides,
@@ -42,18 +45,40 @@ describe("toCsv", () => {
   });
 
   it("escribe una fila por participante con la fecha en hora de Lima", () => {
-    const csv = toCsv([row({}), row({ fullName: "Ana Quispe", phone: "912345678" })]);
+    const csv = toCsv([row({}), row({ fullName: "Ana Quispe", phone: "+51912345678" })]);
     expect(lines(csv)).toEqual([
       HEADER,
-      "José Núñez,987654321,Cautiva Marketing,2026-10-21 15:15:30,,,",
-      "Ana Quispe,912345678,Cautiva Marketing,2026-10-21 15:15:30,,,",
+      "José Núñez,51 987654321,Cautiva Marketing,No,2026-10-21 15:15:30,,,",
+      "Ana Quispe,51 912345678,Cautiva Marketing,No,2026-10-21 15:15:30,,,",
     ]);
+  });
+
+  it("escribe el celular con el prefijo de su país, sin +", () => {
+    const csv = toCsv([
+      row({ phone: "+56912345678" }),
+      row({ phone: "+573001234567" }),
+      row({ phone: "+59171234567" }),
+    ]);
+    const cells = lines(csv)
+      .slice(1)
+      .map((line) => line.split(",")[1]);
+    expect(cells).toEqual(["56 912345678", "57 3001234567", "591 71234567"]);
+  });
+
+  it("un celular de 9 dígitos (formato anterior) sale con el prefijo 51", () => {
+    expect(lines(toCsv([row({ phone: "987654321" })]))[1]).toContain(",51 987654321,");
+  });
+
+  it("la columna «Interesado en CRM» es Sí o No", () => {
+    const csv = toCsv([row({ crmInterest: true }), row({ crmInterest: false })]);
+    expect(lines(csv)[1]).toContain(",Cautiva Marketing,Sí,");
+    expect(lines(csv)[2]).toContain(",Cautiva Marketing,No,");
   });
 
   it("conserva tildes y ñ", () => {
     const csv = toCsv([row({ fullName: "Ñandú Güemes Pérez", company: "Panadería Ñuñoa" })]);
     expect(lines(csv)[1]).toBe(
-      "Ñandú Güemes Pérez,987654321,Panadería Ñuñoa,2026-10-21 15:15:30,,,",
+      "Ñandú Güemes Pérez,51 987654321,Panadería Ñuñoa,No,2026-10-21 15:15:30,,,",
     );
   });
 
@@ -76,7 +101,7 @@ describe("toCsv", () => {
       expect(body).toContain(`'${dangerous}`);
     }
     expect(lines(toCsv([row({ company: "=1+1" })]))[1]).toBe(
-      "José Núñez,987654321,'=1+1,2026-10-21 15:15:30,,,",
+      "José Núñez,51 987654321,'=1+1,No,2026-10-21 15:15:30,,,",
     );
     // También en la columna de nombres.
     expect(
@@ -86,18 +111,18 @@ describe("toCsv", () => {
 
   it("combina la neutralización con el escape de comillas y comas", () => {
     expect(lines(toCsv([row({ company: '=A1,"x"' })]))[1]).toBe(
-      `José Núñez,987654321,"'=A1,""x""",2026-10-21 15:15:30,,,`,
+      `José Núñez,51 987654321,"'=A1,""x""",No,2026-10-21 15:15:30,,,`,
     );
   });
 
-  it("no prefija el celular de 9 dígitos ni textos normales", () => {
-    const line = lines(toCsv([row({ phone: "900000001", company: "Empresa -Norte" })]))[1];
-    expect(line).toBe("José Núñez,900000001,Empresa -Norte,2026-10-21 15:15:30,,,");
+  it("no prefija el celular ni textos normales", () => {
+    const line = lines(toCsv([row({ phone: "+51900000001", company: "Empresa -Norte" })]))[1];
+    expect(line).toBe("José Núñez,51 900000001,Empresa -Norte,No,2026-10-21 15:15:30,,,");
   });
 
   it("genera una línea por participante más el encabezado", () => {
     const rows = Array.from({ length: 25 }, (_, index) =>
-      row({ phone: `9000000${String(index).padStart(2, "0")}` }),
+      row({ phone: `+519000000${String(index).padStart(2, "0")}` }),
     );
     expect(lines(toCsv(rows))).toHaveLength(26);
   });
@@ -107,7 +132,7 @@ describe("toCsv con ganadores (feature 003, FR-084)", () => {
   it("un ganador activo trae premio, número y estado «Ganador»", () => {
     const csv = toCsv([row({ prizeName: "Alexa", winnerNumber: 3, winnerStatus: "active" })]);
     expect(lines(csv)[1]).toBe(
-      "José Núñez,987654321,Cautiva Marketing,2026-10-21 15:15:30,Alexa,3,Ganador",
+      "José Núñez,51 987654321,Cautiva Marketing,No,2026-10-21 15:15:30,Alexa,3,Ganador",
     );
   });
 
@@ -137,8 +162,8 @@ describe("toCsv con ganadores (feature 003, FR-084)", () => {
     expect(lines(comma)[1]?.endsWith(',"Termo, grande",1,Ganador')).toBe(true);
   });
 
-  it("sin filas devuelve solo el encabezado de 7 columnas y conserva BOM y saltos \\r\\n", () => {
-    expect(HEADER.split(",")).toHaveLength(7);
+  it("sin filas devuelve solo el encabezado de 8 columnas y conserva BOM y saltos \\r\\n", () => {
+    expect(HEADER.split(",")).toHaveLength(8);
     expect(toCsv([])).toBe(`${BOM}${HEADER}`);
     const csv = toCsv([row({}), row({})]);
     expect(csv.split("\r\n")).toHaveLength(3);

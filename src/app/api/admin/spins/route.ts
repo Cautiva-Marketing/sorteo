@@ -3,7 +3,6 @@ import { spinRequestSchema } from "@/lib/validation/schemas";
 import { requireAdminApi } from "@/services/admin-auth.service";
 import { invalidatePublicStatus } from "@/services/public-status.service";
 import {
-  ConfirmationRequiredError,
   DrawConflictError,
   NoEligibleError,
   PrizeExhaustedError,
@@ -15,7 +14,7 @@ import {
 export const maxDuration = 60;
 
 /**
- * POST /api/admin/spins — gira la ruleta por un premio (FR-064, FR-065, FR-072, FR-089). El
+ * POST /api/admin/spins — gira la ruleta por un premio (FR-064, FR-065, FR-072, FR-106). El
  * ganador queda guardado antes de responder; la respuesta no incluye celular ni empresa.
  */
 export async function POST(request: Request): Promise<Response> {
@@ -53,9 +52,6 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     if (error instanceof PrizeNotFoundError) {
       return errorResponse("NOT_FOUND", 404, error.message);
-    }
-    if (error instanceof ConfirmationRequiredError) {
-      return errorResponse("CONFIRMATION_REQUIRED", 409, error.message);
     }
     if (error instanceof PrizeExhaustedError) {
       return errorResponse("PRIZE_EXHAUSTED", 409, error.message);

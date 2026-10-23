@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { phoneErrorMessage } from "@/lib/validation/phone";
 import {
   prizeOrderSchema,
   prizeSchema,
@@ -10,6 +11,14 @@ const valid = {
   fullName: "José Núñez Güemes",
   phone: "987 654 321",
   company: "Cautiva Marketing",
+};
+
+/** Lo que devuelve el esquema para `valid`: celular en E.164, sin país y con el CRM en `false`. */
+const validOutput = {
+  fullName: "José Núñez Güemes",
+  phone: "+51987654321",
+  company: "Cautiva Marketing",
+  crmInterest: false,
 };
 
 function parse(overrides: Record<string, unknown>) {
@@ -27,12 +36,31 @@ function messagesFor(overrides: Record<string, unknown>, field: string): string[
 describe("registrationSchema", () => {
   it("acepta datos válidos y normaliza el celular a E.164", () => {
     const result = registrationSchema.parse(valid);
-    expect(result).toEqual({ ...valid, phone: "+51987654321" });
+    expect(result).toEqual(validOutput);
+  });
+
+  it("sigue aceptando el cuerpo anterior (sin país ni CRM)", () => {
+    const result = registrationSchema.parse({
+      fullName: "Ana Pérez",
+      phone: "+51 987-654-321",
+      company: "Cautiva",
+    });
+    expect(result).toEqual({
+      fullName: "Ana Pérez",
+      phone: "+51987654321",
+      company: "Cautiva",
+      crmInterest: false,
+    });
   });
 
   describe("fullName", () => {
-    it("rechaza un solo término", () => {
-      expect(parse({ fullName: "María" }).success).toBe(false);
+    it("acepta un solo nombre", () => {
+      expect(parse({ fullName: "María" }).success).toBe(true);
+      expect(registrationSchema.parse({ ...valid, fullName: " María " }).fullName).toBe("María");
+    });
+
+    it("rechaza una sola letra", () => {
+      expect(parse({ fullName: "A" }).success).toBe(false);
     });
 
     it("acepta tildes, ñ y diéresis", () => {
@@ -43,6 +71,7 @@ describe("registrationSchema", () => {
       expect(parse({ fullName: "Ana 2 Pérez" }).success).toBe(false);
       expect(parse({ fullName: "Ana P@rez" }).success).toBe(false);
       expect(parse({ fullName: "Ana-María Pérez" }).success).toBe(false);
+      expect(parse({ fullName: "María!" }).success).toBe(false);
     });
 
     it("rechaza más de 100 caracteres y acepta exactamente 100", () => {
@@ -74,6 +103,66 @@ describe("registrationSchema", () => {
     it("rechaza vacío", () => {
       expect(parse({ phone: "" }).success).toBe(false);
     });
+
+    it("usa Perú cuando no llega el país", () => {
+      expect(registrationSchema.parse(valid).phone).toBe("+51987654321");
+    });
+
+    it("normaliza con el prefijo del país elegido", () => {
+      const result = registrationSchema.parse({
+        ...valid,
+        fullName: "María",
+        country: "CL",
+        phone: "9 1234 5678",
+      });
+      expect(result.phone).toBe("+56912345678");
+      expect(Object.keys(result).sort()).toEqual(["company", "crmInterest", "fullName", "phone"]);
+    });
+
+    it("rechaza un país fuera de los 12 de Sudamérica", () => {
+      expect(parse({ country: "MX" }).success).toBe(false);
+      expect(parse({ country: "" }).success).toBe(false);
+    });
+
+    it("informa el error del celular en la ruta phone con el mensaje del país", () => {
+      expect(messagesFor({ country: "CL", phone: "812345678" }, "phone")).toEqual([
+        phoneErrorMessage("CL"),
+      ]);
+      expect(messagesFor({ country: "CO", phone: "123" }, "phone")).toEqual([
+        phoneErrorMessage("CO"),
+      ]);
+    });
+
+    it("el mismo número puede ser válido en un país e inválido en otro", () => {
+      expect(parse({ country: "PE", phone: "987654321" }).success).toBe(true);
+      expect(parse({ country: "CO", phone: "987654321" }).success).toBe(false);
+    });
+
+    it("informa a la vez un nombre inválido y un celular inválido", () => {
+      const result = parse({ fullName: "A", phone: "123" });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const fields = result.error.issues.map((issue) => issue.path[0]);
+        expect(fields).toContain("fullName");
+        expect(fields).toContain("phone");
+      }
+    });
+  });
+
+  describe("crmInterest", () => {
+    it("vale false cuando no llega", () => {
+      expect(registrationSchema.parse(valid).crmInterest).toBe(false);
+    });
+
+    it("conserva true y false", () => {
+      expect(parse({ crmInterest: true }).data?.crmInterest).toBe(true);
+      expect(parse({ crmInterest: false }).data?.crmInterest).toBe(false);
+    });
+
+    it("rechaza un valor que no es booleano", () => {
+      expect(parse({ crmInterest: "si" }).success).toBe(false);
+      expect(parse({ crmInterest: 1 }).success).toBe(false);
+    });
   });
 
   describe("company", () => {
@@ -103,8 +192,8 @@ describe("registrationSchema", () => {
   describe("campos que ya no existen (spec 002)", () => {
     it("descarta consent y consentVersion si llegan: no forman parte del resultado", () => {
       const result = registrationSchema.parse({ ...valid, consent: true, consentVersion: "x" });
-      expect(result).toEqual({ ...valid, phone: "+51987654321" });
-      expect(Object.keys(result).sort()).toEqual(["company", "fullName", "phone"]);
+      expect(result).toEqual(validOutput);
+      expect(Object.keys(result).sort()).toEqual(["company", "crmInterest", "fullName", "phone"]);
     });
   });
 
@@ -169,22 +258,18 @@ describe("prizeOrderSchema", () => {
 });
 
 describe("spinRequestSchema", () => {
-  it("acepta un premio con o sin confirmación de cierre", () => {
+  it("acepta un premio y no pide confirmación de cierre", () => {
     expect(spinRequestSchema.parse({ prizeId: "p1" })).toEqual({ prizeId: "p1" });
+  });
+
+  it("ignora la clave antigua confirmCloseRegistration", () => {
     expect(spinRequestSchema.parse({ prizeId: "p1", confirmCloseRegistration: true })).toEqual({
       prizeId: "p1",
-      confirmCloseRegistration: true,
     });
   });
 
   it("rechaza un premio vacío o ausente", () => {
     expect(spinRequestSchema.safeParse({ prizeId: "" }).success).toBe(false);
     expect(spinRequestSchema.safeParse({}).success).toBe(false);
-  });
-
-  it("rechaza una confirmación que no es booleana", () => {
-    expect(
-      spinRequestSchema.safeParse({ prizeId: "p1", confirmCloseRegistration: "si" }).success,
-    ).toBe(false);
   });
 });

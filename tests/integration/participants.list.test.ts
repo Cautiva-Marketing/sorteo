@@ -46,32 +46,63 @@ describe("listParticipants / countParticipants", () => {
     expect(await countParticipants()).toBe(0);
   });
 
-  it("ordena por createdAt descendente y devuelve el celular en 9 dígitos", async () => {
+  it("ordena por createdAt descendente y devuelve el celular en E.164", async () => {
     const phones = await seedParticipants(5);
 
     const rows = await listParticipants();
 
     expect(rows).toHaveLength(5);
     // El participante 4 es el más reciente.
-    expect(rows.map((row) => row.phone)).toEqual(
-      [...phones].reverse().map((phone) => phone.replace("+51", "")),
-    );
+    expect(rows.map((row) => row.phone)).toEqual([...phones].reverse());
     const times = rows.map((row) => row.createdAt.getTime());
     expect(times).toEqual([...times].sort((a, b) => b - a));
     expect(rows[0]).toEqual({
       fullName: "Participante E",
-      phone: phones[4]?.replace("+51", ""),
+      phone: phones[4],
       company: "Empresa E",
       createdAt: expect.any(Date),
+      crmInterest: false,
       drawId: null,
     });
     // Minimización: no se exponen otros campos.
     expect(Object.keys(rows[0] ?? {}).sort()).toEqual([
       "company",
       "createdAt",
+      "crmInterest",
       "drawId",
       "fullName",
       "phone",
+    ]);
+  });
+
+  it("devuelve crmInterest tal como se guardó y false si el documento no trae el campo", async () => {
+    const db = getDb();
+    const base = { company: "Empresa", drawId: null };
+    await db
+      .collection("participants")
+      .doc("+51900000001")
+      .set({
+        ...base,
+        fullName: "Con Interés",
+        phone: "+51900000001",
+        crmInterest: true,
+        createdAt: new Date("2026-10-21T10:00:00.000Z"),
+      });
+    await db
+      .collection("participants")
+      .doc("+56912345678")
+      .set({
+        ...base,
+        fullName: "Sin Campo",
+        phone: "+56912345678",
+        createdAt: new Date("2026-10-20T10:00:00.000Z"),
+      });
+
+    const rows = await listParticipants();
+
+    expect(rows.map((row) => [row.phone, row.crmInterest])).toEqual([
+      ["+51900000001", true],
+      ["+56912345678", false],
     ]);
   });
 

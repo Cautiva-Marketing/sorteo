@@ -62,6 +62,52 @@ describe("registros duplicados por celular", () => {
     });
   });
 
+  it("el mismo número local en dos países son dos participantes", async () => {
+    const peru = await POST(registrationRequest(body({ country: "PE", phone: "987654321" })));
+    const chile = await POST(registrationRequest(body({ country: "CL", phone: "987654321" })));
+
+    expect(peru.status).toBe(201);
+    expect(chile.status).toBe(201);
+    const ids = (await participantDocs()).map((doc) => doc.id).sort();
+    expect(ids).toEqual(["+51987654321", "+56987654321"]);
+  });
+
+  it("con el 0 troncal el mismo número de Paraguay es el mismo registro", async () => {
+    const first = await POST(registrationRequest(body({ country: "PY", phone: "981 123 456" })));
+    const second = await POST(registrationRequest(body({ country: "PY", phone: "0981 123 456" })));
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(409);
+    expect(((await second.json()) as { code: string }).code).toBe("ALREADY_REGISTERED");
+    expect(await participantDocs()).toHaveLength(1);
+  });
+
+  it("un participante del formato anterior (+51…) no puede registrarse de nuevo", async () => {
+    await getDb().collection("participants").doc("+51987654321").set({
+      fullName: "José Núñez Güemes",
+      phone: "+51987654321",
+      company: "Cautiva Marketing",
+      createdAt: new Date(),
+      drawId: null,
+    });
+
+    const response = await POST(registrationRequest(body({ country: "PE" })));
+
+    expect(response.status).toBe(409);
+    expect(await participantDocs()).toHaveLength(1);
+  });
+
+  it("un duplicado con crmInterest: true no cambia la respuesta guardada", async () => {
+    const first = await POST(registrationRequest(body({ crmInterest: false })));
+    expect(first.status).toBe(201);
+
+    const second = await POST(registrationRequest(body({ crmInterest: true })));
+
+    expect(second.status).toBe(409);
+    const stored = (await getDb().collection("participants").doc("+51987654321").get()).data();
+    expect(stored?.crmInterest).toBe(false);
+  });
+
   it("10 envíos simultáneos con el mismo celular crean exactamente 1 documento", async () => {
     const responses = await Promise.all(
       Array.from({ length: 10 }, (_, index) =>

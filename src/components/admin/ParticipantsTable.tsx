@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Button, buttonClassName } from "@/components/ui/Button";
+import { CheckboxField } from "@/components/ui/CheckboxField";
 import { DownloadIcon } from "@/components/ui/icons";
 import { TextField } from "@/components/ui/TextField";
 import { formatLimaDateTime } from "@/lib/format";
 import { filterParticipants } from "@/lib/search";
+import { formatPhoneDisplay } from "@/lib/validation/phone";
 import type { ParticipantListItem } from "@/types";
 
 /** Participantes por página (FR-016). */
@@ -30,9 +32,13 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [query, setQuery] = useState("");
+  const [onlyInterested, setOnlyInterested] = useState(false);
   const [requestedPage, setRequestedPage] = useState(1);
 
-  const matches = useMemo(() => filterParticipants(rows, query), [rows, query]);
+  const matches = useMemo(
+    () => filterParticipants(onlyInterested ? rows.filter((row) => row.crmInterest) : rows, query),
+    [rows, query, onlyInterested],
+  );
   const pageCount = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
   const page = Math.min(requestedPage, pageCount);
   const visible = matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -88,6 +94,14 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
             setRequestedPage(1);
           }}
         />
+        <CheckboxField
+          label="Solo interesados en el CRM"
+          checked={onlyInterested}
+          onChange={(event) => {
+            setOnlyInterested(event.target.checked);
+            setRequestedPage(1);
+          }}
+        />
         <p role="status" aria-live="polite" className="text-base text-ink-600">
           {`Coincidencias: ${matches.length}`}
         </p>
@@ -124,6 +138,9 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
                     Empresa u ocupación
                   </th>
                   <th scope="col" className={headerCell}>
+                    CRM
+                  </th>
+                  <th scope="col" className={headerCell}>
                     Fecha de registro
                   </th>
                 </tr>
@@ -134,8 +151,11 @@ export function ParticipantsTable({ rows, total }: ParticipantsTableProps) {
                     <th scope="row" className={`${bodyCell} text-left font-medium`}>
                       {row.fullName}
                     </th>
-                    <td className={bodyCell}>{row.phone}</td>
+                    <td className={`${bodyCell} whitespace-nowrap`}>
+                      {formatPhoneDisplay(row.phone)}
+                    </td>
                     <td className={bodyCell}>{row.company}</td>
+                    <td className={bodyCell}>{row.crmInterest ? "Sí" : "No"}</td>
                     <td className={`${bodyCell} whitespace-nowrap`}>
                       {formatLimaDateTime(row.createdAt)}
                     </td>

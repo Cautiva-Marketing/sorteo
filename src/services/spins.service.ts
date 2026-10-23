@@ -1,7 +1,6 @@
 import "server-only";
 import { FieldValue, Timestamp, type QuerySnapshot } from "firebase-admin/firestore";
 import { participantRef, pickWinners, type RandomInt } from "@/lib/draw";
-import { toNational } from "@/lib/validation/phone";
 import type { SpinRequestInput } from "@/lib/validation/schemas";
 import type {
   AdminIdentity,
@@ -22,14 +21,6 @@ export const DRAWS_COLLECTION = "draws";
 export const SETTINGS_COLLECTION = "settings";
 export const DRAW_COUNTER_DOC = "draw";
 export const REGISTRATION_DOC = "registration";
-
-/** Las inscripciones siguen abiertas y el giro real no trae `confirmCloseRegistration` (FR-089). */
-export class ConfirmationRequiredError extends Error {
-  constructor() {
-    super("Se cerrarán las inscripciones al girar. Confirma para continuar.");
-    this.name = "ConfirmationRequiredError";
-  }
-}
 
 /** El premio ya entregó todas sus unidades (FR-073, FR-072). */
 export class PrizeExhaustedError extends Error {
@@ -198,13 +189,13 @@ interface CommittedSpin {
 /**
  * Una sola transacción (research D-204): lee premio, contador, inscripciones y participante;
  * comprueba unidades y que el elegido siga sin ganar; y escribe giro, `drawId`, contadores del
- * premio y del evento y, si hace falta, el cierre de las inscripciones.
+ * premio y del evento y, si las inscripciones siguen abiertas, su cierre (FR-107): ese cierre es
+ * atómico con el giro, así que un giro que falla las deja abiertas.
  */
 async function commitSpin(
   prizeId: string,
   chosenId: string,
   admin: AdminIdentity,
-  confirmCloseRegistration: boolean,
 ): Promise<CommittedSpin> {
   const db = getDb();
   const prizeRef = db.collection(PRIZES_COLLECTION).doc(prizeId);
@@ -230,9 +221,6 @@ async function commitSpin(
     }
 
     const registrationOpen = !registrationSnap.exists || registrationSnap.data()?.open !== false;
-    if (registrationOpen && !confirmCloseRegistration) {
-      throw new ConfirmationRequiredError();
-    }
 
     const participant = participantSnap.data();
     if (!participantSnap.exists || !participant || participant.drawId !== null) {
@@ -252,7 +240,8 @@ async function commitSpin(
       winner: {
         fullName,
         company: String(participant.company ?? ""),
-        phone: toNational(String(participant.phone ?? participantSnap.id)),
+        // E.164 (feature 004); los giros y rondas anteriores guardan 9 dígitos, que se leen como Perú.
+        phone: String(participant.phone ?? participantSnap.id),
       },
       status: "active",
       createdAt: FieldValue.serverTimestamp(),
@@ -284,13 +273,14 @@ async function commitSpin(
 }
 
 /**
- * Gira por un premio (FR-064, FR-065, FR-072, FR-089): elige un ganador al azar entre los
+ * Gira por un premio (FR-064, FR-065, FR-072, FR-106, FR-107): elige un ganador al azar entre los
  * elegibles y lo guarda **antes** de responder. Un giro concurrente que se lleve al elegido hace
  * reintentar hasta 3 veces (`DrawConflictError` después); uno que se lleve la última unidad del
- * premio hace lanzar `PrizeExhaustedError`. La respuesta no incluye celular ni empresa.
+ * premio hace lanzar `PrizeExhaustedError`. El primer giro real cierra las inscripciones dentro de
+ * la misma transacción, sin pedir confirmación. La respuesta no incluye celular ni empresa.
  */
 export async function spin(
-  { prizeId, confirmCloseRegistration }: SpinRequestInput,
+  { prizeId }: SpinRequestInput,
   admin: AdminIdentity,
   options: SpinOptions = {},
 ): Promise<SpinResult> {
@@ -303,12 +293,7 @@ export async function spin(
     const chosenId = chosen as string;
 
     try {
-      const committed = await commitSpin(
-        prizeId,
-        chosenId,
-        admin,
-        confirmCloseRegistration === true,
-      );
+      const committed = await commitSpin(prizeId, chosenId, admin);
       const saved = await getDb().collection(SPINS_COLLECTION).doc(committed.id).get();
       const createdAt = toDate(saved.data()?.createdAt) ?? new Date();
       return {

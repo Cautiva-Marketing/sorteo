@@ -1,35 +1,3 @@
-<!--
-SYNC IMPACT REPORT (temporal; eliminar antes de hacer commit)
-- Version change: 1.0.1 → 2.0.0 (MAJOR: se eliminan reglas de los principios III y IV de forma
-  incompatible con la versión anterior; la feature 002 exige quitar el consentimiento y el
-  anti-spam obligatorios)
-- Principios modificados:
-  - III. Seguridad y Prevención de Abuso (NO NEGOCIABLE) → III. Seguridad y Control de Acceso
-    (NO NEGOCIABLE). Se elimina la obligación de protección anti-spam (rate limiting, App Check o
-    reCAPTCHA); se registra como riesgo aceptado.
-  - IV. Privacidad de Datos Personales (Ley 29733) → IV. Minimización y Uso de Datos Personales.
-    Se eliminan el consentimiento explícito, la finalidad mostrada en el formulario, el enlace a la
-    política y la evidencia de consentimiento. Se mantienen la minimización y la restricción de
-    uso/exposición; se actualiza la lista de campos permitidos (nombres, celular, empresa u
-    ocupación, que ya existían en la feature 001).
-  - V. UX Mobile-First, Marca y Accesibilidad: la paleta pasa de azul `#3d8cd3` + blanco a base
-    blanco y negro con el azul del logo de Cautiva como único acento; se agrega la tipografía
-    (Space Grotesk / Inter); la regla «logo solo sobre fondo oscuro» se reemplaza por logo en
-    versión para fondo claro sobre fondo blanco.
-  - VI. Pruebas, Rendimiento y Simplicidad: la prueba E2E ya no cubre «envío sin consentimiento»;
-    cubre «envío con datos inválidos».
-- Principios sin cambios: I, II.
-- Secciones añadidas: ninguna
-- Secciones eliminadas: ninguna
-- Secciones modificadas: Restricciones Técnicas y de Despliegue (sin cambios de fondo);
-  Flujo de Desarrollo y Puertas de Calidad (sin cambios de fondo); Governance (sin cambios)
-- Plantillas dependientes: no se modifican (leen la constitución en tiempo de ejecución)
-- Impacto en artefactos existentes (fuera del alcance de este comando, a resolver con la feature 002):
-  `specs/001-registro-sorteo/` (spec, plan, tasks, contratos) y el código actual
-  (consentimiento, `/privacidad`, App Check/reCAPTCHA, paleta) incumplen esta versión hasta que se
-  implemente la 002.
-- TODOs pendientes: ninguno
--->
 # Registro y Sorteo Constitution
 
 ## Core Principles
@@ -75,9 +43,12 @@ protege los datos; compartir esquemas evita divergencias entre ambas.
   servidor (Admin SDK), siempre que la creación del registro sea la única escritura
   disponible para un participante y la autorización de administrador se verifique en el
   servidor en cada petición.
-- No DEBE existir más de un registro por celular. El celular DEBE normalizarse a formato
-  E.164 (`+51XXXXXXXXX`) y la unicidad DEBE garantizarse en el servidor o en las reglas de
-  datos (p. ej. usando el celular normalizado como ID del documento), no solo en la UI.
+- No DEBE existir más de un registro por celular. El celular DEBE normalizarse a formato E.164 con
+  el prefijo del país elegido (Perú `+51` por defecto; se admiten los países de Sudamérica que tengan
+  formato de celular definido) y la unicidad DEBE garantizarse en el servidor o en las reglas de
+  datos (p. ej. usando el celular normalizado como ID del documento), no solo en la UI. El mismo
+  número local en países distintos son registros distintos; los registros `+51…` existentes siguen
+  siendo válidos.
 - El registro NO exige protección anti-automatización (reCAPTCHA, App Check ni equivalentes):
   la organización acepta el riesgo de registros automatizados o falsos. Esta decisión NO
   autoriza debilitar el resto del principio: la validación del servidor, la unicidad por
@@ -90,14 +61,16 @@ que mantiene la integridad del sorteo, y el riesgo restante queda aceptado de fo
 
 ### IV. Minimización y Uso de Datos Personales
 
-- DEBE recolectarse solo lo estrictamente necesario: nombres completos, celular y empresa u
-  ocupación. Cualquier campo adicional exige enmendar esta constitución o justificarlo en el
-  plan.
+- DEBE recolectarse solo lo estrictamente necesario: nombres completos, celular (con su país),
+  empresa u ocupación y la respuesta opcional (Sí/No) a «¿Deseas adquirir el CRM con Agente IA?».
+  Cualquier campo adicional exige enmendar esta constitución o justificarlo en el plan.
 - El sistema NO incluye flujo de consentimiento ni política de privacidad (casillero, texto de
   finalidad, enlace o evidencia de aceptación). El cumplimiento de la Ley N.º 29733 (Perú) y su
   reglamento corresponde a la empresa organizadora, fuera del sistema.
 - Los datos NO DEBEN usarse para una finalidad distinta a la participación en el sorteo y el
-  contacto con los ganadores, ni exponerse en el cliente público ni en logs. Los datos
+  contacto con los ganadores; la única excepción es que la organización PUEDE contactar con fines
+  comerciales a quienes marcaron el interés en el CRM con Agente IA. Esa respuesta NO DEBE influir en
+  el sorteo ni exponerse en el cliente público, en la ventana del ganador ni en logs. Los datos
   mostrados públicamente (p. ej. el contador de registrados) DEBEN limitarse a agregados que no
   identifiquen a ninguna persona.
 - El administrador DEBE poder borrar los datos personales de los participantes al terminar la
@@ -113,8 +86,10 @@ no exponerlo y poder borrarlo reduce el riesgo para los participantes y para la 
   QR.
 - El diseño DEBE ser minimalista: base blanco y negro (fondo blanco, texto casi negro `#0A0A0A`,
   grises neutros y bordes finos). La identidad de Cautiva Marketing se expresa con su logo y con
-  su azul como único color de acento, usado solo en detalles mínimos. Los colores de estado
-  (error y éxito) son la única excepción.
+  su azul como único color de acento, usado solo en detalles mínimos. Las excepciones son los
+  colores de estado (error y éxito) y la ruleta del sorteo, que PUEDE usar la paleta de la «A» del
+  logo de Creando Valor (morado `#524A99`, lavanda `#706BAF` y celeste `#23BCEF`) definida como
+  tokens propios; esa paleta NO DEBE usarse fuera de la ruleta.
 - Los colores DEBEN definirse como design tokens (variables CSS / tema de Tailwind); NO DEBEN
   hardcodearse valores de color en componentes.
 - El logo DEBE usarse en la versión que corresponda al fondo: sobre fondo claro, ícono «ti» más
@@ -126,6 +101,9 @@ no exponerlo y poder borrarlo reduce el riesgo para los participantes y para la 
 - El contraste DEBE cumplir WCAG 2.1 AA (4.5:1 texto normal, 3:1 texto grande y componentes
   de UI). El azul del logo `#0A70BB` (≈5.2:1 sobre blanco) PUEDE usarse como texto; `#3D8CD3`
   (≈3.6:1 sobre blanco) NO DEBE usarse para texto normal, solo para elementos no textuales.
+- La tarjeta final del registro PUEDE incluir enlaces a las redes sociales de las marcas; DEBEN
+  abrirse en pestaña nueva, con nombre accesible y área táctil de al menos 44 px.
+- El texto sobre cada color de la ruleta DEBE cumplir el contraste AA sobre ese color.
 - Cada campo DEBE tener un `label` asociado; los errores DEBEN estar en español, ser claros y
   anunciarse a lectores de pantalla (`aria-describedby` / `aria-live`). Las ventanas modales
   DEBEN contener el foco, poder cerrarse con el teclado y respetar `prefers-reduced-motion`.
@@ -182,4 +160,4 @@ lentas, y la base de código pequeña para mantenerla segura y simple.
 - El cumplimiento DEBE revisarse en cada plan (Constitution Check) y en cada revisión de
   código; los incumplimientos sin justificación bloquean la integración.
 
-**Version**: 2.0.0 | **Ratified**: 2026-10-21 | **Last Amended**: 2026-10-22
+**Version**: 2.1.0 | **Ratified**: 2026-10-21 | **Last Amended**: 2026-10-23

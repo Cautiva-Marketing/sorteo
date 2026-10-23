@@ -1,5 +1,6 @@
 import { DiscardWinnerButton } from "@/components/admin/DiscardWinnerButton";
 import { formatLimaDateTime } from "@/lib/format";
+import { formatPhoneDisplay } from "@/lib/validation/phone";
 import type { WinnerRecord } from "@/types";
 
 export interface WinnerHistoryProps {
@@ -62,7 +63,8 @@ export function WinnerHistory({ records }: WinnerHistoryProps) {
                   <div className="flex flex-col gap-1.5 rounded-2xl bg-paper-soft px-3 py-2.5">
                     {record.phone !== undefined ? (
                       <p className="text-sm text-ink-900">
-                        <span className="text-xs text-ink-500">Celular:</span> {record.phone}
+                        <span className="text-xs text-ink-500">Celular:</span>{" "}
+                        {formatPhoneDisplay(record.phone)}
                       </p>
                     ) : null}
                     {record.company !== undefined ? (
